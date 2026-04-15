@@ -3,13 +3,27 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: BarberMetrics API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: appointments
+    description: Haircut appointment operations
+  - name: timer
+    description: Timer control operations
+  - name: services
+    description: Service type operations
+  - name: bills
+    description: Monthly bills/expenses operations
+  - name: dashboard
+    description: Dashboard summary operations
+  - name: productivity
+    description: Productivity analytics operations
+  - name: finances
+    description: Financial analytics operations
 paths:
   /healthz:
     get:
@@ -24,6 +38,321 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /appointments:
+    get:
+      operationId: listAppointments
+      tags: [appointments]
+      summary: List appointments
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, year]
+            default: today
+      responses:
+        "200":
+          description: List of appointments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Appointment"
+    post:
+      operationId: createAppointment
+      tags: [appointments]
+      summary: Create appointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppointmentBody"
+      responses:
+        "201":
+          description: Created appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+
+  /appointments/{id}:
+    get:
+      operationId: getAppointment
+      tags: [appointments]
+      summary: Get appointment by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+    delete:
+      operationId: deleteAppointment
+      tags: [appointments]
+      summary: Delete appointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /timer/start:
+    post:
+      operationId: startTimer
+      tags: [timer]
+      summary: Start a new haircut timer
+      responses:
+        "200":
+          description: Timer started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimerSession"
+
+  /timer/active:
+    get:
+      operationId: getActiveTimer
+      tags: [timer]
+      summary: Get active timer session
+      responses:
+        "200":
+          description: Active timer session or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimerSession"
+
+  /timer/finish:
+    post:
+      operationId: finishTimer
+      tags: [timer]
+      summary: Finish the active timer and save appointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinishTimerBody"
+      responses:
+        "200":
+          description: Appointment created from timer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+
+  /bills:
+    get:
+      operationId: listBills
+      tags: [bills]
+      summary: List monthly bills
+      responses:
+        "200":
+          description: List of bills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bill"
+    post:
+      operationId: createBill
+      tags: [bills]
+      summary: Create a bill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBillBody"
+      responses:
+        "201":
+          description: Created bill
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bill"
+
+  /bills/{id}:
+    delete:
+      operationId: deleteBill
+      tags: [bills]
+      summary: Delete a bill
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+    patch:
+      operationId: updateBill
+      tags: [bills]
+      summary: Update a bill
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBillBody"
+      responses:
+        "200":
+          description: Updated bill
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bill"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get today's dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /productivity/stats:
+    get:
+      operationId: getProductivityStats
+      tags: [productivity]
+      summary: Get productivity statistics
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, year]
+            default: today
+      responses:
+        "200":
+          description: Productivity statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductivityStats"
+
+  /productivity/tips:
+    get:
+      operationId: getProductivityTips
+      tags: [productivity]
+      summary: Get AI-style productivity tips based on data
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, year]
+            default: week
+      responses:
+        "200":
+          description: Productivity tips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductivityTip"
+
+  /finances/summary:
+    get:
+      operationId: getFinancialSummary
+      tags: [finances]
+      summary: Get financial summary with bills, earnings and projections
+      responses:
+        "200":
+          description: Financial summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialSummary"
+
+  /settings/daily-goal:
+    get:
+      operationId: getDailyGoal
+      tags: [dashboard]
+      summary: Get daily earnings goal
+      responses:
+        "200":
+          description: Daily goal setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyGoal"
+    put:
+      operationId: updateDailyGoal
+      tags: [dashboard]
+      summary: Update daily earnings goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDailyGoalBody"
+      responses:
+        "200":
+          description: Updated goal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyGoal"
+
+  /settings/work-hours:
+    get:
+      operationId: getWorkHours
+      tags: [dashboard]
+      summary: Get work hours settings
+      responses:
+        "200":
+          description: Work hours
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkHours"
+    put:
+      operationId: updateWorkHours
+      tags: [dashboard]
+      summary: Update work hours settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkHours"
+      responses:
+        "200":
+          description: Updated work hours
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkHours"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +363,308 @@ components:
       required:
         - status
 
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+        endTime:
+          type: string
+        durationMinutes:
+          type: integer
+        service:
+          type: string
+        value:
+          type: number
+        barberEarnings:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - date
+        - startTime
+        - endTime
+        - durationMinutes
+        - service
+        - value
+        - barberEarnings
+        - createdAt
+
+    CreateAppointmentBody:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+        endTime:
+          type: string
+        durationMinutes:
+          type: integer
+        service:
+          type: string
+        value:
+          type: number
+      required:
+        - service
+        - value
+        - durationMinutes
+
+    TimerSession:
+      type: object
+      properties:
+        id:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        elapsedSeconds:
+          type: integer
+        isActive:
+          type: boolean
+      required:
+        - id
+        - startedAt
+        - elapsedSeconds
+        - isActive
+
+    FinishTimerBody:
+      type: object
+      properties:
+        service:
+          type: string
+        value:
+          type: number
+        customService:
+          type: string
+      required:
+        - service
+        - value
+
+    Bill:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        value:
+          type: number
+        dueDay:
+          type: integer
+        category:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - value
+        - dueDay
+        - createdAt
+
+    CreateBillBody:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: number
+        dueDay:
+          type: integer
+        category:
+          type: string
+      required:
+        - name
+        - value
+        - dueDay
+
+    DashboardSummary:
+      type: object
+      properties:
+        clientsToday:
+          type: integer
+        grossRevenue:
+          type: number
+        barberEarnings:
+          type: number
+        avgDurationMinutes:
+          type: number
+        earningsPerHour:
+          type: number
+        dailyGoal:
+          type: number
+        goalProgress:
+          type: number
+        isTimerActive:
+          type: boolean
+        timerStartedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - clientsToday
+        - grossRevenue
+        - barberEarnings
+        - avgDurationMinutes
+        - earningsPerHour
+        - dailyGoal
+        - goalProgress
+        - isTimerActive
+
+    ProductivityStats:
+      type: object
+      properties:
+        period:
+          type: string
+        totalClients:
+          type: integer
+        avgDurationMinutes:
+          type: number
+        earningsPerHour:
+          type: number
+        totalWorkingMinutes:
+          type: integer
+        totalServiceMinutes:
+          type: integer
+        idleMinutes:
+          type: integer
+        potentialExtraEarnings:
+          type: number
+        serviceBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceBreakdown"
+        dailyAvgClients:
+          type: number
+        totalEarnings:
+          type: number
+      required:
+        - period
+        - totalClients
+        - avgDurationMinutes
+        - earningsPerHour
+        - totalWorkingMinutes
+        - totalServiceMinutes
+        - idleMinutes
+        - potentialExtraEarnings
+        - serviceBreakdown
+        - dailyAvgClients
+        - totalEarnings
+
+    ServiceBreakdown:
+      type: object
+      properties:
+        service:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+        totalRevenue:
+          type: number
+        avgValue:
+          type: number
+      required:
+        - service
+        - count
+        - percentage
+        - totalRevenue
+        - avgValue
+
+    ProductivityTip:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [time, revenue, service, idle]
+        message:
+          type: string
+        impact:
+          type: string
+          nullable: true
+      required:
+        - id
+        - type
+        - message
+
+    FinancialSummary:
+      type: object
+      properties:
+        currentMonthEarnings:
+          type: number
+        totalBills:
+          type: number
+        remainingAfterBills:
+          type: number
+        billsShortfall:
+          type: number
+        weeklyGoal:
+          type: number
+        dailyGoalRequired:
+          type: number
+        projectedMonthlyEarnings:
+          type: number
+        projectedAfterBills:
+          type: number
+        daysRemainingInMonth:
+          type: integer
+        billsList:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bill"
+        onTrack:
+          type: boolean
+        dailyDeficit:
+          type: number
+          nullable: true
+      required:
+        - currentMonthEarnings
+        - totalBills
+        - remainingAfterBills
+        - billsShortfall
+        - weeklyGoal
+        - dailyGoalRequired
+        - projectedMonthlyEarnings
+        - projectedAfterBills
+        - daysRemainingInMonth
+        - billsList
+        - onTrack
+
+    DailyGoal:
+      type: object
+      properties:
+        goal:
+          type: number
+      required:
+        - goal
+
+    UpdateDailyGoalBody:
+      type: object
+      properties:
+        goal:
+          type: number
+      required:
+        - goal
+
+    WorkHours:
+      type: object
+      properties:
+        hoursPerDay:
+          type: number
+        daysPerWeek:
+          type: integer
+      required:
+        - hoursPerDay
+        - daysPerWeek

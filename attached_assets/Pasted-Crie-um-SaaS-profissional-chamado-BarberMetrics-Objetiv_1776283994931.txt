@@ -1,0 +1,350 @@
+Crie um SaaS profissional chamado BarberMetrics.
+
+Objetivo:
+Ajudar barbeiros a controlar tempo de corte, registrar atendimentos, analisar produtividade e acompanhar sua situação financeira pessoal.
+
+O sistema deve ser extremamente simples, rápido e intuitivo, otimizado para uso no celular durante o trabalho.
+
+Interface moderna, minimalista e bonita, com botões grandes, fluxo rápido e poucos passos para registrar atendimentos.
+
+Tecnologias sugeridas:
+Frontend: Next.js + React
+Backend: Node.js
+Banco de dados: PostgreSQL
+Hospedagem: Vercel
+Notificações: Web Push
+
+------------------------------------------------
+
+ESTRUTURA PRINCIPAL DO SISTEMA
+
+O sistema deve ter 4 abas principais:
+
+Dashboard
+Atendimentos
+Produtividade
+Finanças
+
+------------------------------------------------
+
+1. DASHBOARD
+
+Tela principal do aplicativo.
+
+Mostrar indicadores do dia em tempo real:
+
+Clientes atendidos hoje
+Faturamento bruto do dia
+Lucro do barbeiro (60%)
+Tempo médio de corte
+Dinheiro gerado por hora
+Meta diária
+
+Exemplo:
+
+Clientes hoje: 6
+Faturamento: R$180
+Seu ganho: R$108
+Tempo médio: 23 minutos
+Dinheiro por hora: R$27
+
+Meta diária: R$200
+Progresso: 54%
+
+Botão principal grande:
+
+"Iniciar corte"
+
+------------------------------------------------
+
+2. TIMER DE CORTE
+
+Fluxo simples para não atrapalhar o trabalho.
+
+Quando clicar em "Iniciar corte":
+
+Inicia um cronômetro.
+Mostra apenas o tempo na tela.
+
+Exemplo:
+
+Tempo: 12:45
+
+Alertas automáticos opcionais:
+
+20 minutos → aviso leve
+25 minutos → alerta de produtividade
+
+Nenhuma ação obrigatória durante o corte.
+
+------------------------------------------------
+
+3. FINALIZAR CORTE
+
+Quando terminar:
+
+Botão:
+
+"Finalizar corte"
+
+Sistema calcula automaticamente:
+
+Tempo total do atendimento.
+
+Exemplo:
+
+Tempo total: 24 minutos
+
+------------------------------------------------
+
+4. REGISTRO DE SERVIÇO
+
+Após finalizar o corte mostrar botões grandes:
+
+Corte — R$30
+Corte + barba — R$50
+Sobrancelha — R$10
+Alisamento — R$80
+Outro valor (campo manual)
+
+Ao selecionar o serviço o sistema salva automaticamente o atendimento.
+
+------------------------------------------------
+
+5. BANCO DE DADOS
+
+Tabela: atendimentos
+
+Campos:
+
+id
+data
+hora_inicio
+hora_fim
+tempo_total
+servico
+valor
+lucro_barbeiro
+
+O lucro deve ser calculado automaticamente:
+
+lucro_barbeiro = valor × 0.60
+
+------------------------------------------------
+
+6. ABA PRODUTIVIDADE
+
+Mostrar análises com filtros:
+
+Hoje
+Semana
+Mês
+Ano
+
+Indicadores:
+
+clientes por dia
+tempo médio de corte
+dinheiro por hora
+serviços mais vendidos
+serviços mais lucrativos
+
+Exemplo de análise automática:
+
+"Hoje seu tempo médio foi 27 minutos.
+O ideal seria 22 minutos.
+Se reduzir 5 minutos por corte você pode atender 2 clientes a mais por dia."
+
+------------------------------------------------
+
+7. ANÁLISE DE TEMPO PERDIDO
+
+O sistema deve calcular o tempo que o barbeiro ficou sem clientes.
+
+Exemplo:
+
+Hoje você trabalhou 8h
+
+Tempo atendendo clientes: 3h20
+Tempo sem clientes: 4h40
+
+Mensagem automática:
+
+"Se você tivesse atendido mais 3 clientes hoje poderia ganhar aproximadamente +R$54."
+
+------------------------------------------------
+
+8. RANKING DE SERVIÇOS
+
+Mostrar:
+
+Serviços mais vendidos
+Serviços mais lucrativos
+
+Exemplo:
+
+Serviços mais vendidos:
+
+Corte: 68%
+Corte + barba: 21%
+Sobrancelha: 11%
+
+Serviços mais lucrativos:
+
+1º Corte + barba
+2º Alisamento
+3º Corte simples
+
+Sugestão automática:
+
+"Se vender 2 serviços de barba a mais por dia seu faturamento pode aumentar aproximadamente R$900 por mês."
+
+------------------------------------------------
+
+9. SISTEMA DE DICAS INTELIGENTES
+
+O sistema deve analisar dados e gerar recomendações automaticamente.
+
+Exemplos:
+
+"Seu tempo médio aumentou 3 minutos essa semana."
+
+"Se reduzir 3 minutos por corte você pode ganhar R$600 a mais por mês."
+
+"O serviço Corte + barba tem a melhor margem."
+
+------------------------------------------------
+
+10. ABA FINANÇAS
+
+Controle financeiro pessoal do barbeiro.
+
+Permitir cadastrar contas fixas:
+
+Pensão
+Luz
+Água
+Manutenção
+Outras contas
+
+Cada conta terá:
+
+nome
+valor
+data de vencimento
+
+Mostrar:
+
+Total de contas do mês
+Dinheiro em caixa
+Quanto falta para pagar contas
+
+Exemplo:
+
+Contas do mês: R$764
+Dinheiro em caixa: R$210
+Falta: R$554
+
+------------------------------------------------
+
+11. META FINANCEIRA AUTOMÁTICA
+
+Sistema calcula quanto o barbeiro precisa ganhar.
+
+Exemplo:
+
+Meta semanal necessária: R$139
+Meta diária necessária: R$23
+
+Baseado em:
+
+contas cadastradas
+dinheiro atual
+dias restantes no mês
+
+------------------------------------------------
+
+12. PREVISÃO FINANCEIRA
+
+Sistema deve projetar o resultado do mês.
+
+Exemplo:
+
+"Se continuar nessa média você terminará o mês com R$2.420."
+
+"Após pagar as contas sobrará R$1.656."
+
+Ou alerta:
+
+"Na média atual você não conseguirá pagar todas as contas.
+Você precisa aumentar R$35 por dia."
+
+------------------------------------------------
+
+13. META DO DIA
+
+Sistema mostra meta diária visual.
+
+Exemplo:
+
+Meta do dia: R$200
+
+Progresso:
+
+R$140 / R$200
+
+Mensagem:
+
+"Faltam 3 cortes para atingir sua meta."
+
+------------------------------------------------
+
+14. RELATÓRIO DO DIA
+
+Modo iniciar e encerrar dia de trabalho.
+
+Ao encerrar mostrar resumo:
+
+Clientes atendidos
+Faturamento
+Lucro
+Tempo médio
+Dinheiro por hora
+
+Exemplo:
+
+Clientes: 9
+Faturamento: R$270
+Seu ganho: R$162
+Tempo médio: 23 min
+
+------------------------------------------------
+
+15. DESIGN
+
+Interface:
+
+minimalista
+moderna
+botões grandes
+gráficos simples
+otimizado para celular
+
+Referências visuais:
+
+Notion
+Stripe Dashboard
+Linear
+
+------------------------------------------------
+
+16. MVP
+
+Primeira versão precisa conter:
+
+timer de corte
+registro de serviços
+armazenamento no banco
+dashboard diário
+produtividade básica
+controle de contas
