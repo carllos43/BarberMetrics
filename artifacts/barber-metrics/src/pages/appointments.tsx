@@ -117,11 +117,16 @@ export default function AppointmentsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-base font-semibold text-foreground truncate">{apt.service}</h4>
-                        <div className="flex items-center mt-1 text-xs text-muted-foreground gap-1">
-                          <CalendarIcon className="w-3 h-3" />
-                          <span className="mr-2">{format(aptDate, "dd MMM", { locale: ptBR })}</span>
-                          <Clock className="w-3 h-3" />
-                          <span>{apt.startTime.substring(0, 5)} ({formatMinutes(apt.durationMinutes)})</span>
+                        <div className="flex items-center mt-0.5 text-xs text-muted-foreground gap-1">
+                          <CalendarIcon className="w-3 h-3 flex-shrink-0" />
+                          <span>{format(aptDate, "dd MMM", { locale: ptBR })}</span>
+                        </div>
+                        <div className="flex items-center mt-0.5 text-xs text-muted-foreground gap-1">
+                          <Clock className="w-3 h-3 flex-shrink-0" />
+                          <span>
+                            {apt.startTime.substring(0, 5)} → {apt.endTime.substring(0, 5)}
+                            <span className="ml-1 text-muted-foreground/70">({formatMinutes(apt.durationMinutes)})</span>
+                          </span>
                         </div>
                       </div>
                       <div className="text-right">

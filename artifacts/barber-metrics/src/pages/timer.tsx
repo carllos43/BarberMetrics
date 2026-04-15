@@ -1,25 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-  useStartTimer, 
-  useGetActiveTimer, 
+import {
+  useStartTimer,
+  useGetActiveTimer,
   useFinishTimer,
   getGetActiveTimerQueryKey,
   getGetDashboardSummaryQueryKey,
   getListAppointmentsQueryKey,
   getGetProductivityStatsQueryKey,
-  getGetFinancialSummaryQueryKey
+  getGetFinancialSummaryQueryKey,
 } from "@workspace/api-client-react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Play, Square, AlertTriangle, AlertCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const SERVICES = [
   { id: "corte", label: "Corte", value: 30 },
@@ -28,32 +27,133 @@ const SERVICES = [
   { id: "alisamento", label: "Alisamento", value: 80 },
 ];
 
+const LS_KEY = "barbermetrics_timer_start";
+
+function formatTime(totalSeconds: number) {
+  const m = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const s = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
 export default function TimerPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [elapsed, setElapsed] = useState(0);
   const [showServices, setShowServices] = useState(false);
   const [customValue, setCustomValue] = useState("");
+  const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
+  const rafRef = useRef<number | null>(null);
 
+  // ─── Fetch active timer from server (once + on demand, not every second) ───
   const { data: activeTimer, isLoading: isLoadingTimer } = useGetActiveTimer({
-    query: { 
+    query: {
       queryKey: getGetActiveTimerQueryKey(),
-      refetchInterval: 1000 
-    }
+      // Poll server infrequently — just to keep server state in sync
+      // The visual clock is driven by the local timestamp
+      refetchInterval: 30_000,
+      staleTime: 5_000,
+    },
   });
 
-  const startTimer = useStartTimer({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetActiveTimerQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+  // ─── Sync server startedAt into local state + localStorage ───
+  useEffect(() => {
+    if (activeTimer?.isActive && activeTimer.startedAt) {
+      const ms = new Date(activeTimer.startedAt).getTime();
+      if (!isNaN(ms)) {
+        setStartedAtMs(ms);
+        localStorage.setItem(LS_KEY, String(ms));
+      }
+    } else if (!activeTimer?.isActive) {
+      // Timer not active on server → clear local state
+      const saved = localStorage.getItem(LS_KEY);
+      if (saved) {
+        localStorage.removeItem(LS_KEY);
+      }
+      setStartedAtMs(null);
+    }
+  }, [activeTimer?.isActive, activeTimer?.startedAt]);
+
+  // ─── On mount: restore from localStorage if server hasn't responded yet ───
+  useEffect(() => {
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) {
+      const ms = parseInt(saved, 10);
+      if (!isNaN(ms)) {
+        setStartedAtMs(ms);
       }
     }
+  }, []);
+
+  // ─── Timestamp-based RAF clock — immune to tab switching / screen lock ───
+  const tick = useCallback(() => {
+    if (startedAtMs !== null) {
+      const secs = Math.floor((Date.now() - startedAtMs) / 1000);
+      setElapsed(secs);
+      rafRef.current = requestAnimationFrame(tick);
+    }
+  }, [startedAtMs]);
+
+  useEffect(() => {
+    if (startedAtMs !== null) {
+      // Immediate tick so the display updates without waiting a frame
+      const secs = Math.floor((Date.now() - startedAtMs) / 1000);
+      setElapsed(secs);
+      rafRef.current = requestAnimationFrame(tick);
+    } else {
+      setElapsed(0);
+    }
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [startedAtMs, tick]);
+
+  // ─── Re-sync when the tab becomes visible again ───
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && startedAtMs !== null) {
+        // Immediately recalculate elapsed from real timestamp
+        const secs = Math.floor((Date.now() - startedAtMs) / 1000);
+        setElapsed(secs);
+        // Also re-validate server state
+        queryClient.invalidateQueries({ queryKey: getGetActiveTimerQueryKey() });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [startedAtMs, queryClient]);
+
+  // ─── Mutations ───
+  const startTimer = useStartTimer({
+    mutation: {
+      onMutate: () => {
+        // Optimistic: set local start immediately for instant feedback
+        const now = Date.now();
+        setStartedAtMs(now);
+        localStorage.setItem(LS_KEY, String(now));
+      },
+      onSuccess: (data) => {
+        // Correct with server timestamp
+        const ms = new Date(data.startedAt).getTime();
+        if (!isNaN(ms)) {
+          setStartedAtMs(ms);
+          localStorage.setItem(LS_KEY, String(ms));
+        }
+        queryClient.invalidateQueries({ queryKey: getGetActiveTimerQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      },
+      onError: () => {
+        setStartedAtMs(null);
+        localStorage.removeItem(LS_KEY);
+      },
+    },
   });
 
   const finishTimer = useFinishTimer({
     mutation: {
       onSuccess: () => {
+        localStorage.removeItem(LS_KEY);
+        setStartedAtMs(null);
+        setElapsed(0);
         queryClient.invalidateQueries({ queryKey: getGetActiveTimerQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListAppointmentsQueryKey() });
@@ -61,19 +161,9 @@ export default function TimerPage() {
         queryClient.invalidateQueries({ queryKey: getGetFinancialSummaryQueryKey() });
         setShowServices(false);
         setLocation("/");
-      }
-    }
+      },
+    },
   });
-
-  useEffect(() => {
-    if (activeTimer?.isActive) {
-      setElapsed(activeTimer.elapsedSeconds);
-      const interval = setInterval(() => {
-        setElapsed(prev => prev + 1);
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [activeTimer?.isActive, activeTimer?.elapsedSeconds]);
 
   const handleStart = () => {
     startTimer.mutate();
@@ -94,121 +184,153 @@ export default function TimerPage() {
     }
   };
 
-  const formatTime = (totalSeconds: number) => {
-    const m = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
-    const s = (totalSeconds % 60).toString().padStart(2, "0");
-    return `${m}:${s}`;
-  };
-
+  const isActive = startedAtMs !== null;
   const minutes = Math.floor(elapsed / 60);
   const isWarning = minutes >= 20 && minutes < 25;
   const isDanger = minutes >= 25;
 
+  const timerColor = isDanger
+    ? "text-destructive"
+    : isWarning
+    ? "text-amber-500"
+    : isActive
+    ? "text-primary"
+    : "text-muted-foreground";
+
   return (
-    <MobileLayout title="Timer" hideNav={activeTimer?.isActive}>
+    <MobileLayout title="Timer">
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] p-6">
-        
-        {isLoadingTimer ? (
+
+        {isLoadingTimer && !startedAtMs ? (
           <Skeleton className="w-64 h-24 rounded-2xl mb-12" />
         ) : (
-          <motion.div 
-            className="mb-12 relative flex flex-col items-center"
-            animate={{ 
-              scale: activeTimer?.isActive ? 1.05 : 1,
-            }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          <motion.div
+            className="mb-12 flex flex-col items-center gap-5"
+            animate={{ scale: isActive ? 1.05 : 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 22 }}
           >
-            <div className={`text-7xl font-bold font-mono tracking-tighter tabular-nums transition-colors duration-500
-              ${isDanger ? "text-destructive" : isWarning ? "text-amber-500" : "text-foreground"}
-            `}>
+            {/* Clock face */}
+            <div className={`text-8xl font-bold font-mono tracking-tighter tabular-nums transition-colors duration-300 ${timerColor}`}>
               {formatTime(elapsed)}
             </div>
-            
-            {activeTimer?.isActive && (
-              <div className="mt-4 h-8 flex items-center justify-center">
-                {isDanger ? (
-                  <div className="flex items-center text-destructive animate-pulse font-medium bg-destructive/10 px-3 py-1 rounded-full text-sm">
-                    <AlertCircle className="w-4 h-4 mr-2" /> 25 min ultrapassados
-                  </div>
-                ) : isWarning ? (
-                  <div className="flex items-center text-amber-500 font-medium bg-amber-500/10 px-3 py-1 rounded-full text-sm">
-                    <AlertTriangle className="w-4 h-4 mr-2" /> Atenção ao tempo
-                  </div>
-                ) : (
-                  <div className="flex items-center text-primary font-medium bg-primary/10 px-3 py-1 rounded-full text-sm">
-                    Corte em andamento
-                  </div>
-                )}
-              </div>
+
+            {/* Status badge */}
+            <AnimatePresence mode="wait">
+              {isActive && (
+                <motion.div
+                  key={isDanger ? "danger" : isWarning ? "warning" : "active"}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {isDanger ? (
+                    <div className="flex items-center text-destructive font-medium bg-destructive/10 px-4 py-2 rounded-full text-sm gap-2 animate-pulse">
+                      <AlertCircle className="w-4 h-4" /> 25 min ultrapassados
+                    </div>
+                  ) : isWarning ? (
+                    <div className="flex items-center text-amber-500 font-medium bg-amber-500/10 px-4 py-2 rounded-full text-sm gap-2">
+                      <AlertTriangle className="w-4 h-4" /> Atenção ao tempo
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-primary font-medium bg-primary/10 px-4 py-2 rounded-full text-sm gap-2">
+                      <span className="w-2 h-2 rounded-full bg-primary animate-pulse inline-block" />
+                      Corte em andamento
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Elapsed description */}
+            {isActive && (
+              <p className="text-sm text-muted-foreground">
+                {minutes > 0 ? `${minutes} min ${elapsed % 60} seg` : `${elapsed} seg`}
+              </p>
             )}
           </motion.div>
         )}
 
         <div className="w-full max-w-xs space-y-4">
-          {!activeTimer?.isActive ? (
-            <Button 
-              size="lg" 
-              className="w-full h-20 text-xl font-bold rounded-2xl shadow-xl hover:scale-[1.02] active:scale-95 transition-all"
-              onClick={handleStart}
-              disabled={startTimer.isPending}
-            >
-              <Play className="mr-3 h-8 w-8" />
-              Iniciar Cronômetro
-            </Button>
+          {!isActive ? (
+            <motion.div whileTap={{ scale: 0.97 }}>
+              <Button
+                size="lg"
+                className="w-full h-20 text-xl font-bold rounded-2xl shadow-xl"
+                onClick={handleStart}
+                disabled={startTimer.isPending}
+              >
+                <Play className="mr-3 h-7 w-7 fill-current" />
+                {startTimer.isPending ? "Iniciando..." : "Iniciar Corte"}
+              </Button>
+            </motion.div>
           ) : (
-            <Button 
-              size="lg" 
-              variant="destructive"
-              className="w-full h-20 text-xl font-bold rounded-2xl shadow-[0_0_40px_-10px_rgba(255,0,0,0.5)] hover:scale-[1.02] active:scale-95 transition-all"
-              onClick={handleStop}
-            >
-              <Square className="mr-3 h-8 w-8 fill-current" />
-              Finalizar Corte
-            </Button>
+            <motion.div whileTap={{ scale: 0.97 }}>
+              <Button
+                size="lg"
+                variant="destructive"
+                className="w-full h-20 text-xl font-bold rounded-2xl"
+                onClick={handleStop}
+              >
+                <Square className="mr-3 h-7 w-7 fill-current" />
+                Finalizar Corte
+              </Button>
+            </motion.div>
           )}
         </div>
       </div>
 
-      <Drawer open={showServices} onOpenChange={setShowServices}>
+      <Drawer open={showServices} onOpenChange={(open) => { if (!finishTimer.isPending) setShowServices(open); }}>
         <DrawerContent className="bg-card text-card-foreground border-border">
           <DrawerHeader>
             <DrawerTitle className="text-xl">Selecione o Serviço</DrawerTitle>
+            <p className="text-sm text-muted-foreground text-center mt-1">
+              Duração: {formatTime(elapsed)}
+            </p>
           </DrawerHeader>
-          <div className="p-4 pb-8 space-y-3">
+          <div className="p-4 pb-safe-8 space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              {SERVICES.map(service => (
-                <Button
-                  key={service.id}
-                  variant="outline"
-                  className="h-20 flex flex-col items-center justify-center border-border hover:bg-accent hover:text-accent-foreground active:scale-95 transition-transform"
-                  onClick={() => handleServiceSelect(service.label, service.value)}
-                  disabled={finishTimer.isPending}
-                >
-                  <span className="font-bold text-lg">{service.label}</span>
-                  <span className="text-sm text-muted-foreground opacity-80">R$ {service.value}</span>
-                </Button>
+              {SERVICES.map((service) => (
+                <motion.div key={service.id} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    variant="outline"
+                    className="w-full h-20 flex flex-col items-center justify-center border-border hover:bg-accent hover:border-primary hover:text-primary transition-all"
+                    onClick={() => handleServiceSelect(service.label, service.value)}
+                    disabled={finishTimer.isPending}
+                  >
+                    <span className="font-bold text-lg">{service.label}</span>
+                    <span className="text-sm opacity-70 mt-0.5">R$ {service.value}</span>
+                  </Button>
+                </motion.div>
               ))}
             </div>
-            
-            <div className="pt-4 border-t border-border mt-4">
+
+            <div className="pt-4 border-t border-border">
               <Label className="text-sm font-medium mb-2 block">Outro Valor</Label>
               <div className="flex gap-2">
-                <Input 
-                  type="number" 
-                  placeholder="0,00" 
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0,00"
                   className="text-lg font-medium h-14 bg-background border-border focus-visible:ring-primary"
                   value={customValue}
                   onChange={(e) => setCustomValue(e.target.value)}
                 />
-                <Button 
-                  className="h-14 px-8 font-bold text-lg"
-                  onClick={handleCustomService}
-                  disabled={!customValue || finishTimer.isPending}
-                >
-                  Salvar
-                </Button>
+                <motion.div whileTap={{ scale: 0.95 }}>
+                  <Button
+                    className="h-14 px-6 font-bold text-base"
+                    onClick={handleCustomService}
+                    disabled={!customValue || finishTimer.isPending}
+                  >
+                    Salvar
+                  </Button>
+                </motion.div>
               </div>
             </div>
+
+            <p className="text-xs text-center text-muted-foreground pb-2">
+              {finishTimer.isPending ? "Salvando atendimento..." : "Toque no serviço para registrar"}
+            </p>
           </div>
         </DrawerContent>
       </Drawer>
