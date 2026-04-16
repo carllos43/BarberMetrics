@@ -261,6 +261,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
 
+  /dashboard/monthly-analysis:
+    get:
+      operationId: getMonthlyAnalysis
+      tags: [dashboard]
+      summary: Get monthly performance analysis
+      parameters:
+        - name: month
+          in: query
+          description: "Month in YYYY-MM format, defaults to current month"
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Monthly performance analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyAnalysis"
+
   /productivity/stats:
     get:
       operationId: getProductivityStats
@@ -784,3 +803,99 @@ components:
       required:
         - hoursPerDay
         - daysPerWeek
+
+    DayEarnings:
+      type: object
+      properties:
+        date:
+          type: string
+        earnings:
+          type: number
+        appointmentCount:
+          type: integer
+      required:
+        - date
+        - earnings
+        - appointmentCount
+
+    HourStat:
+      type: object
+      properties:
+        hour:
+          type: integer
+        count:
+          type: integer
+      required:
+        - hour
+        - count
+
+    WeekdayStat:
+      type: object
+      properties:
+        weekday:
+          type: integer
+        dayName:
+          type: string
+        avgEarnings:
+          type: number
+        count:
+          type: integer
+      required:
+        - weekday
+        - dayName
+        - avgEarnings
+        - count
+
+    ServiceRankItem:
+      type: object
+      properties:
+        service:
+          type: string
+        count:
+          type: integer
+        totalEarnings:
+          type: number
+      required:
+        - service
+        - count
+        - totalEarnings
+
+    MonthlyAnalysis:
+      type: object
+      properties:
+        month:
+          type: string
+        workedDays:
+          type: integer
+        totalEarnings:
+          type: number
+        dailyAverage:
+          type: number
+        monthlyForecast:
+          type: number
+        topDays:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayEarnings"
+        busiestHours:
+          type: array
+          items:
+            $ref: "#/components/schemas/HourStat"
+        weekdayStats:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeekdayStat"
+        serviceRanking:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceRankItem"
+      required:
+        - month
+        - workedDays
+        - totalEarnings
+        - dailyAverage
+        - monthlyForecast
+        - topDays
+        - busiestHours
+        - weekdayStats
+        - serviceRanking

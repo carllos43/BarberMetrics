@@ -26,10 +26,12 @@ import type {
   DashboardSummary,
   FinancialSummary,
   FinishTimerBody,
+  GetMonthlyAnalysisParams,
   GetProductivityStatsParams,
   GetProductivityTipsParams,
   HealthStatus,
   ListAppointmentsParams,
+  MonthlyAnalysis,
   ProductivityStats,
   ProductivityTip,
   TimerSession,
@@ -1195,6 +1197,106 @@ export function useGetDashboardSummary<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDashboardSummaryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get monthly performance analysis
+ */
+export const getGetMonthlyAnalysisUrl = (params?: GetMonthlyAnalysisParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/monthly-analysis?${stringifiedParams}`
+    : `/api/dashboard/monthly-analysis`;
+};
+
+export const getMonthlyAnalysis = async (
+  params?: GetMonthlyAnalysisParams,
+  options?: RequestInit,
+): Promise<MonthlyAnalysis> => {
+  return customFetch<MonthlyAnalysis>(getGetMonthlyAnalysisUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMonthlyAnalysisQueryKey = (
+  params?: GetMonthlyAnalysisParams,
+) => {
+  return [
+    `/api/dashboard/monthly-analysis`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetMonthlyAnalysisQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMonthlyAnalysis>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetMonthlyAnalysisParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMonthlyAnalysis>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMonthlyAnalysisQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMonthlyAnalysis>>
+  > = ({ signal }) => getMonthlyAnalysis(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMonthlyAnalysis>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMonthlyAnalysisQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMonthlyAnalysis>>
+>;
+export type GetMonthlyAnalysisQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get monthly performance analysis
+ */
+
+export function useGetMonthlyAnalysis<
+  TData = Awaited<ReturnType<typeof getMonthlyAnalysis>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetMonthlyAnalysisParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMonthlyAnalysis>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMonthlyAnalysisQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

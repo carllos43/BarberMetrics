@@ -12,6 +12,7 @@ import {
   GetCommissionResponse,
   UpdateCommissionBody,
   UpdateCommissionResponse,
+  GetMonthlyAnalysisResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -144,6 +145,122 @@ router.put("/settings/work-hours", async (req, res): Promise<void> => {
   await upsertSetting("days_per_week", parsed.data.daysPerWeek.toString());
 
   res.json(UpdateWorkHoursResponse.parse(parsed.data));
+});
+
+const BR_TZ = "America/Sao_Paulo";
+function currentMonthBR(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: BR_TZ, year: "numeric", month: "2-digit" })
+    .format(new Date()).substring(0, 7);
+}
+
+const DAY_NAMES = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+router.get("/dashboard/monthly-analysis", async (req, res): Promise<void> => {
+  const month = (typeof req.query.month === "string" && /^\d{4}-\d{2}$/.test(req.query.month))
+    ? req.query.month
+    : currentMonthBR();
+
+  const monthStart = `${month}-01`;
+  const [year, mon] = month.split("-").map(Number);
+  const lastDay = new Date(year, mon, 0).getDate();
+  const monthEnd = `${month}-${String(lastDay).padStart(2, "0")}`;
+
+  const rows = await db
+    .select()
+    .from(appointmentsTable)
+    .where(and(gte(appointmentsTable.date, monthStart), lte(appointmentsTable.date, monthEnd)));
+
+  // --- top days ---
+  const dayMap = new Map<string, { earnings: number; count: number }>();
+  for (const r of rows) {
+    const e = parseFloat(r.barberEarnings as string) || 0;
+    const existing = dayMap.get(r.date) || { earnings: 0, count: 0 };
+    dayMap.set(r.date, { earnings: existing.earnings + e, count: existing.count + 1 });
+  }
+  const topDays = Array.from(dayMap.entries())
+    .map(([date, d]) => ({ date, earnings: Math.round(d.earnings * 100) / 100, appointmentCount: d.count }))
+    .sort((a, b) => b.earnings - a.earnings);
+
+  const workedDays = dayMap.size;
+  const totalEarnings = topDays.reduce((s, d) => s + d.earnings, 0);
+  const dailyAverage = workedDays > 0 ? totalEarnings / workedDays : 0;
+
+  // forecast: project daily avg to remaining working days in month
+  const todayBR = new Intl.DateTimeFormat("en-CA", { timeZone: BR_TZ }).format(new Date());
+  const isCurrentMonth = todayBR.startsWith(month);
+  let monthlyForecast = totalEarnings;
+  if (isCurrentMonth) {
+    const todayDay = parseInt(todayBR.split("-")[2], 10);
+    const remainingDays = lastDay - todayDay;
+    // estimate remaining worked days proportionally
+    const workDayRatio = workedDays / Math.max(1, todayDay);
+    const projectedRemainingDays = remainingDays * workDayRatio;
+    monthlyForecast = totalEarnings + dailyAverage * projectedRemainingDays;
+  }
+  monthlyForecast = Math.round(monthlyForecast * 100) / 100;
+
+  // --- busiest hours ---
+  const hourMap = new Map<number, number>();
+  for (const r of rows) {
+    const hour = parseInt((r.startTime || "0").split(":")[0], 10);
+    if (!isNaN(hour)) hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
+  }
+  const busiestHours = Array.from(hourMap.entries())
+    .map(([hour, count]) => ({ hour, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // --- weekday stats ---
+  const wdMap = new Map<number, { earnings: number; count: number }>();
+  for (const r of rows) {
+    const [y, m, d] = r.date.split("-").map(Number);
+    const wd = new Date(y, m - 1, d).getDay(); // 0=Sun
+    const e = parseFloat(r.barberEarnings as string) || 0;
+    const existing = wdMap.get(wd) || { earnings: 0, count: 0 };
+    wdMap.set(wd, { earnings: existing.earnings + e, count: existing.count + 1 });
+  }
+  // count distinct days per weekday
+  const wdDaysMap = new Map<number, Set<string>>();
+  for (const r of rows) {
+    const [y, m, d] = r.date.split("-").map(Number);
+    const wd = new Date(y, m - 1, d).getDay();
+    if (!wdDaysMap.has(wd)) wdDaysMap.set(wd, new Set());
+    wdDaysMap.get(wd)!.add(r.date);
+  }
+  const weekdayStats = Array.from(wdMap.entries())
+    .map(([weekday, d]) => {
+      const days = wdDaysMap.get(weekday)?.size || 1;
+      return {
+        weekday,
+        dayName: DAY_NAMES[weekday],
+        avgEarnings: Math.round((d.earnings / days) * 100) / 100,
+        count: d.count,
+      };
+    })
+    .sort((a, b) => b.avgEarnings - a.avgEarnings);
+
+  // --- service ranking ---
+  const svcMap = new Map<string, { count: number; earnings: number }>();
+  for (const r of rows) {
+    const svc = r.service || "Outro";
+    const e = parseFloat(r.barberEarnings as string) || 0;
+    const existing = svcMap.get(svc) || { count: 0, earnings: 0 };
+    svcMap.set(svc, { count: existing.count + 1, earnings: existing.earnings + e });
+  }
+  const serviceRanking = Array.from(svcMap.entries())
+    .map(([service, d]) => ({ service, count: d.count, totalEarnings: Math.round(d.earnings * 100) / 100 }))
+    .sort((a, b) => b.count - a.count);
+
+  res.json(GetMonthlyAnalysisResponse.parse({
+    month,
+    workedDays,
+    totalEarnings: Math.round(totalEarnings * 100) / 100,
+    dailyAverage: Math.round(dailyAverage * 100) / 100,
+    monthlyForecast,
+    topDays,
+    busiestHours,
+    weekdayStats,
+    serviceRanking,
+  }));
 });
 
 router.get("/settings/commission", async (req, res): Promise<void> => {

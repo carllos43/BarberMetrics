@@ -221,6 +221,52 @@ export const GetDashboardSummaryResponse = zod.object({
 });
 
 /**
+ * @summary Get monthly performance analysis
+ */
+export const GetMonthlyAnalysisQueryParams = zod.object({
+  month: zod.coerce
+    .string()
+    .optional()
+    .describe("Month in YYYY-MM format, defaults to current month"),
+});
+
+export const GetMonthlyAnalysisResponse = zod.object({
+  month: zod.string(),
+  workedDays: zod.number(),
+  totalEarnings: zod.number(),
+  dailyAverage: zod.number(),
+  monthlyForecast: zod.number(),
+  topDays: zod.array(
+    zod.object({
+      date: zod.string(),
+      earnings: zod.number(),
+      appointmentCount: zod.number(),
+    }),
+  ),
+  busiestHours: zod.array(
+    zod.object({
+      hour: zod.number(),
+      count: zod.number(),
+    }),
+  ),
+  weekdayStats: zod.array(
+    zod.object({
+      weekday: zod.number(),
+      dayName: zod.string(),
+      avgEarnings: zod.number(),
+      count: zod.number(),
+    }),
+  ),
+  serviceRanking: zod.array(
+    zod.object({
+      service: zod.string(),
+      count: zod.number(),
+      totalEarnings: zod.number(),
+    }),
+  ),
+});
+
+/**
  * @summary Get productivity statistics
  */
 export const getProductivityStatsQueryPeriodDefault = `today`;

@@ -167,6 +167,42 @@ export interface WorkHours {
   daysPerWeek: number;
 }
 
+export interface DayEarnings {
+  date: string;
+  earnings: number;
+  appointmentCount: number;
+}
+
+export interface HourStat {
+  hour: number;
+  count: number;
+}
+
+export interface WeekdayStat {
+  weekday: number;
+  dayName: string;
+  avgEarnings: number;
+  count: number;
+}
+
+export interface ServiceRankItem {
+  service: string;
+  count: number;
+  totalEarnings: number;
+}
+
+export interface MonthlyAnalysis {
+  month: string;
+  workedDays: number;
+  totalEarnings: number;
+  dailyAverage: number;
+  monthlyForecast: number;
+  topDays: DayEarnings[];
+  busiestHours: HourStat[];
+  weekdayStats: WeekdayStat[];
+  serviceRanking: ServiceRankItem[];
+}
+
 export type ListAppointmentsParams = {
   period?: ListAppointmentsPeriod;
 };
@@ -180,6 +216,13 @@ export const ListAppointmentsPeriod = {
   month: "month",
   year: "year",
 } as const;
+
+export type GetMonthlyAnalysisParams = {
+  /**
+   * Month in YYYY-MM format, defaults to current month
+   */
+  month?: string;
+};
 
 export type GetProductivityStatsParams = {
   period?: GetProductivityStatsPeriod;

@@ -14,6 +14,7 @@ import {
   Activity, Timer, Scissors, Coffee, Zap,
   TrendingUp, Target, AlertTriangle, CheckCircle2,
 } from "lucide-react";
+import { MonthlyAnalysisTab } from "./analysis";
 
 const COLORS = ["hsl(var(--primary))", "hsl(210 100% 60%)", "hsl(150 80% 45%)", "hsl(280 80% 55%)", "hsl(340 80% 60%)"];
 
@@ -54,6 +55,7 @@ function ProductivityGauge({ pct }: { pct: number }) {
 }
 
 export default function ProductivityPage() {
+  const [tab, setTab] = useState<"metricas" | "analise">("metricas");
   const [period, setPeriod] = useState<GetProductivityStatsPeriod>("today");
 
   const { data: stats, isLoading } = useGetProductivityStats(
@@ -77,6 +79,31 @@ export default function ProductivityPage() {
 
   return (
     <MobileLayout title="Métricas">
+      {/* Tab bar */}
+      <div className="flex border-b border-border bg-card sticky top-0 z-30">
+        {[
+          { key: "metricas", label: "Desempenho" },
+          { key: "analise", label: "Análise Mensal" },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key as "metricas" | "analise")}
+            className={`flex-1 py-3 text-sm font-semibold transition-colors border-b-2 ${
+              tab === t.key
+                ? "text-primary border-primary"
+                : "text-muted-foreground border-transparent hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "analise" ? (
+        <div className="p-4">
+          <MonthlyAnalysisTab />
+        </div>
+      ) : (
       <div className="p-4 space-y-5 pb-8">
 
         {/* Period selector */}
@@ -279,6 +306,7 @@ export default function ProductivityPage() {
           </Card>
         )}
       </div>
+      )}
     </MobileLayout>
   );
 }
