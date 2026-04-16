@@ -1,22 +1,33 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
-import { db, appointmentsTable } from "@workspace/db";
+import { eq, and, gte, lte } from "drizzle-orm";
+import { db, appointmentsTable, settingsTable } from "@workspace/db";
 import {
   ListAppointmentsQueryParams,
   CreateAppointmentBody,
   GetAppointmentParams,
   DeleteAppointmentParams,
+  UpdateAppointmentBody,
   ListAppointmentsResponse,
   GetAppointmentResponse,
-  FinishTimerBody,
-  FinishTimerResponse,
 } from "@workspace/api-zod";
-
 const router: IRouter = Router();
+
+const BR_TZ = "America/Sao_Paulo";
+
+function toBRDateStr(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: BR_TZ, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(date);
+}
+
+async function getCommission(): Promise<number> {
+  const [row] = await db.select().from(settingsTable).where(eq(settingsTable.key, "commission_percent")).limit(1);
+  return row ? parseFloat(row.value) : 60;
+}
 
 function getPeriodDates(period: string): { start: string; end: string } {
   const now = new Date();
-  const today = now.toISOString().split("T")[0];
+  const today = toBRDateStr(now);
 
   if (period === "today") {
     return { start: today, end: today };
@@ -26,22 +37,13 @@ function getPeriodDates(period: string): { start: string; end: string } {
     monday.setDate(now.getDate() - day + (day === 0 ? -6 : 1));
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    return {
-      start: monday.toISOString().split("T")[0],
-      end: sunday.toISOString().split("T")[0],
-    };
+    return { start: toBRDateStr(monday), end: toBRDateStr(sunday) };
   } else if (period === "month") {
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return {
-      start: start.toISOString().split("T")[0],
-      end: end.toISOString().split("T")[0],
-    };
+    return { start: toBRDateStr(start), end: toBRDateStr(end) };
   } else if (period === "year") {
-    return {
-      start: `${now.getFullYear()}-01-01`,
-      end: `${now.getFullYear()}-12-31`,
-    };
+    return { start: `${now.getFullYear()}-01-01`, end: `${now.getFullYear()}-12-31` };
   }
   return { start: today, end: today };
 }
@@ -74,11 +76,14 @@ router.post("/appointments", async (req, res): Promise<void> => {
   }
 
   const now = new Date();
-  const today = now.toISOString().split("T")[0];
-  const timeStr = now.toTimeString().slice(0, 8);
+  const today = toBRDateStr(now);
+  const timeStr = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: BR_TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).format(now);
 
+  const commission = await getCommission();
   const value = parsed.data.value;
-  const barberEarnings = value * 0.6;
+  const barberEarnings = value * (commission / 100);
 
   const [appointment] = await db
     .insert(appointmentsTable)
@@ -97,6 +102,49 @@ router.post("/appointments", async (req, res): Promise<void> => {
     ...appointment,
     value: parseFloat(appointment.value),
     barberEarnings: parseFloat(appointment.barberEarnings),
+  }));
+});
+
+router.patch("/appointments/:id", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const parsed = UpdateAppointmentBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const [existing] = await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+
+  const startTime = parsed.data.startTime ?? existing.startTime;
+  const endTime = parsed.data.endTime ?? existing.endTime;
+
+  // Recalculate duration from start/end times
+  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
+  const durationMinutes = Math.max(1, toMin(endTime) - toMin(startTime));
+
+  const value = parsed.data.value ?? parseFloat(existing.value);
+  const commission = await getCommission();
+  const barberEarnings = value * (commission / 100);
+
+  const [updated] = await db
+    .update(appointmentsTable)
+    .set({
+      date: parsed.data.date ?? existing.date,
+      startTime,
+      endTime,
+      durationMinutes,
+      service: parsed.data.service ?? existing.service,
+      value: value.toString(),
+      barberEarnings: barberEarnings.toString(),
+    })
+    .where(eq(appointmentsTable.id, id))
+    .returning();
+
+  res.json(GetAppointmentResponse.parse({
+    ...updated,
+    value: parseFloat(updated.value),
+    barberEarnings: parseFloat(updated.barberEarnings),
   }));
 });
 

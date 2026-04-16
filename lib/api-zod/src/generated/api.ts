@@ -71,6 +71,33 @@ export const GetAppointmentResponse = zod.object({
 });
 
 /**
+ * @summary Update an appointment
+ */
+export const UpdateAppointmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAppointmentBody = zod.object({
+  date: zod.string().optional(),
+  startTime: zod.string().optional(),
+  endTime: zod.string().optional(),
+  service: zod.string().optional(),
+  value: zod.number().optional(),
+});
+
+export const UpdateAppointmentResponse = zod.object({
+  id: zod.number(),
+  date: zod.coerce.date(),
+  startTime: zod.string(),
+  endTime: zod.string(),
+  durationMinutes: zod.number(),
+  service: zod.string(),
+  value: zod.number(),
+  barberEarnings: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Delete appointment
  */
 export const DeleteAppointmentParams = zod.object({
@@ -317,4 +344,40 @@ export const UpdateWorkHoursBody = zod.object({
 export const UpdateWorkHoursResponse = zod.object({
   hoursPerDay: zod.number(),
   daysPerWeek: zod.number(),
+});
+
+/**
+ * @summary Get barber commission percentage
+ */
+export const getCommissionResponseCommissionPercentMin = 0;
+export const getCommissionResponseCommissionPercentMax = 100;
+
+export const GetCommissionResponse = zod.object({
+  commissionPercent: zod
+    .number()
+    .min(getCommissionResponseCommissionPercentMin)
+    .max(getCommissionResponseCommissionPercentMax),
+});
+
+/**
+ * @summary Update barber commission percentage
+ */
+export const updateCommissionBodyCommissionPercentMin = 0;
+export const updateCommissionBodyCommissionPercentMax = 100;
+
+export const UpdateCommissionBody = zod.object({
+  commissionPercent: zod
+    .number()
+    .min(updateCommissionBodyCommissionPercentMin)
+    .max(updateCommissionBodyCommissionPercentMax),
+});
+
+export const updateCommissionResponseCommissionPercentMin = 0;
+export const updateCommissionResponseCommissionPercentMax = 100;
+
+export const UpdateCommissionResponse = zod.object({
+  commissionPercent: zod
+    .number()
+    .min(updateCommissionResponseCommissionPercentMin)
+    .max(updateCommissionResponseCommissionPercentMax),
 });

@@ -30,6 +30,22 @@ export interface CreateAppointmentBody {
   value: number;
 }
 
+export interface UpdateAppointmentBody {
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  service?: string;
+  value?: number;
+}
+
+export interface CommissionSetting {
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  commissionPercent: number;
+}
+
 export interface TimerSession {
   id: string;
   startedAt: string;

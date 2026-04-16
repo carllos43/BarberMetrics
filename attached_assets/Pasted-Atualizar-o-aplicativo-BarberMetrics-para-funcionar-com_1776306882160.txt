@@ -1,0 +1,332 @@
+Atualizar o aplicativo BarberMetrics para funcionar como um sistema profissional de controle de produtividade e faturamento para barbeiros.
+
+OBJETIVO
+Criar um aplicativo simples, rápido e confiável para registrar atendimentos, acompanhar produtividade, analisar faturamento e controlar despesas da barbearia.
+
+────────────────
+1. SISTEMA DE TEMPO PROFISSIONAL
+
+Substituir qualquer cronômetro simples por um sistema baseado em timestamp.
+
+Ao iniciar corte:
+
+const startTime = Date.now()
+
+Ao finalizar:
+
+const endTime = Date.now()
+
+Calcular duração:
+
+duration = endTime - startTime
+
+Salvar no banco:
+
+start_time_utc
+end_time_utc
+duration_ms
+
+Sempre salvar timestamps em UTC.
+
+────────────────
+2. CORREÇÃO DE FUSO HORÁRIO
+
+Exibir todos os horários no horário do Brasil.
+
+Usar:
+
+new Date(timestamp).toLocaleTimeString("pt-BR", {
+ timeZone: "America/Sao_Paulo",
+ hour: "2-digit",
+ minute: "2-digit"
+})
+
+Exemplo no histórico:
+
+21:16 → 21:33
+17 min
+
+────────────────
+3. TIMER RESISTENTE A TELA BLOQUEADA
+
+Salvar startTime no localStorage.
+
+localStorage.setItem("activeCutStart", startTime)
+
+Ao abrir novamente recuperar:
+
+const savedStart = localStorage.getItem("activeCutStart")
+
+Recalcular o tempo automaticamente.
+
+Garantir funcionamento mesmo se:
+
+- celular bloquear
+- trocar de aba
+- atualizar página
+
+────────────────
+4. HISTÓRICO DE ATENDIMENTOS
+
+Cada atendimento deve mostrar:
+
+hora_inicio → hora_fim
+duração
+serviço
+valor
+lucro do barbeiro
+
+Exemplo:
+
+21:16 → 21:33
+17 min
+Corte
+R$30
++R$18
+
+────────────────
+5. EDITAR ATENDIMENTOS
+
+Permitir editar qualquer atendimento.
+
+Ao tocar no atendimento abrir tela:
+
+Editar atendimento
+
+Campos editáveis:
+
+- serviço
+- hora início
+- hora fim
+- valor
+
+Após salvar recalcular automaticamente:
+
+- duração
+- lucro
+- faturamento do dia
+- produtividade
+
+────────────────
+6. REGISTRO MANUAL DE ATENDIMENTO
+
+Adicionar botão:
+
+Adicionar atendimento manual
+
+Campos:
+
+- serviço
+- hora início
+- hora fim
+- valor
+
+Campos opcionais:
+
+- duração
+
+Se duração for preenchida:
+
+hora_inicio = hora_fim - duração
+
+────────────────
+7. REGISTRO RÁPIDO (2 SEGUNDOS)
+
+Adicionar seção:
+
+Registrar rápido
+
+Botões:
+
+Corte
+Corte + Barba
+Sobrancelha
+Alisamento
+
+Ao clicar:
+
+hora_fim = Date.now()
+hora_inicio = hora_fim - tempo_medio_servico
+
+Salvar automaticamente.
+
+Mostrar:
+
+Atendimento registrado
+
+Botões:
+
+Editar
+Desfazer
+
+────────────────
+8. LONG PRESS (SEGURAR BOTÃO)
+
+Se usuário segurar botão por 1 segundo abrir opções:
+
+Corte personalizado
+Corte + sobrancelha
+Corte + barba
+
+────────────────
+9. TEMPO MÉDIO AUTOMÁTICO
+
+Calcular tempo médio baseado nos atendimentos.
+
+tempo_medio = soma_duração / número_de_cortes
+
+────────────────
+10. RESUMO DO DIA
+
+Mostrar painel no topo:
+
+Tempo trabalhando
+Tempo atendendo
+Tempo parado
+Produtividade
+Tempo médio
+Valor da cadeira por hora
+Ganho por hora do barbeiro
+
+Exemplo:
+
+Hoje
+
+⏱ Trabalhando: 4h20
+✂️ Atendendo: 2h45
+⌛ Parado: 1h35
+
+📈 Produtividade: 63%
+⏳ Tempo médio: 23 min
+
+💺 Valor da cadeira: R$101/h
+💰 Seu ganho por hora: R$61/h
+
+────────────────
+11. CÁLCULOS
+
+Tempo atendendo:
+soma das durações.
+
+Tempo trabalhando:
+primeiro atendimento → último atendimento.
+
+Tempo parado:
+tempo_trabalhando - tempo_atendendo.
+
+Produtividade:
+
+produtividade = tempo_atendendo / tempo_trabalhando
+
+────────────────
+12. VALOR DA CADEIRA POR HORA
+
+chair_hour_value = faturamento_bruto / horas_atendendo
+
+────────────────
+13. GANHO POR HORA DO BARBEIRO
+
+barber_hour_value = lucro_barbeiro / horas_atendendo
+
+────────────────
+14. META AUTOMÁTICA DA CADEIRA
+
+Calcular meta usando:
+
+tempo médio
+horas trabalhadas
+ticket médio
+
+clientes_possiveis = minutos_trabalhados / tempo_medio
+
+meta = clientes_possiveis × ticket_medio
+
+────────────────
+15. META MÍNIMA FINANCEIRA
+
+Permitir cadastrar despesas mensais.
+
+Calcular:
+
+meta_minima_dia = despesas_mensais / dias_trabalhados
+
+────────────────
+16. PROGRESSO DA META
+
+Mostrar progresso:
+
+Hoje
+
+R$320 / R$680
+
+Faltam R$360
+≈ 11 cortes
+
+────────────────
+17. GERENCIAMENTO DE SERVIÇOS
+
+Criar tela "Serviços".
+
+Cada serviço deve permitir:
+
+- editar nome
+- editar preço
+- editar tempo médio
+
+────────────────
+18. GERENCIAMENTO DE DESPESAS
+
+Criar tela "Despesas".
+
+Permitir:
+
+- adicionar
+- editar
+- excluir
+
+Campos:
+
+nome
+valor
+dia de vencimento
+
+────────────────
+19. CONFIGURAÇÕES
+
+Tela de configurações com:
+
+comissão do barbeiro
+horas trabalhadas por dia
+dias trabalhados por mês
+
+────────────────
+20. INTERFACE
+
+Interface mobile simples.
+
+Cards grandes para:
+
+Produtividade
+Tempo médio
+Valor da cadeira
+Ganho por hora
+Meta diária
+
+────────────────
+21. PERFORMANCE
+
+Melhorar velocidade do timer e resposta dos botões.
+
+Evitar atraso ao iniciar ou finalizar cortes.
+
+────────────────
+RESULTADO FINAL
+
+Criar um sistema profissional que permita:
+
+registrar cortes rapidamente
+editar dados facilmente
+controlar despesas
+acompanhar produtividade
+analisar faturamento
+acompanhar metas diárias

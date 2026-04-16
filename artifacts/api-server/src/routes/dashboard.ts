@@ -9,6 +9,9 @@ import {
   GetWorkHoursResponse,
   UpdateWorkHoursBody,
   UpdateWorkHoursResponse,
+  GetCommissionResponse,
+  UpdateCommissionBody,
+  UpdateCommissionResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -141,6 +144,18 @@ router.put("/settings/work-hours", async (req, res): Promise<void> => {
   await upsertSetting("days_per_week", parsed.data.daysPerWeek.toString());
 
   res.json(UpdateWorkHoursResponse.parse(parsed.data));
+});
+
+router.get("/settings/commission", async (req, res): Promise<void> => {
+  const commissionPercent = parseFloat(await getSetting("commission_percent", "60"));
+  res.json(GetCommissionResponse.parse({ commissionPercent }));
+});
+
+router.put("/settings/commission", async (req, res): Promise<void> => {
+  const parsed = UpdateCommissionBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await upsertSetting("commission_percent", parsed.data.commissionPercent.toString());
+  res.json(UpdateCommissionResponse.parse({ commissionPercent: parsed.data.commissionPercent }));
 });
 
 export default router;

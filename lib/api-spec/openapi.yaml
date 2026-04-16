@@ -96,6 +96,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Appointment"
+    patch:
+      operationId: updateAppointment
+      tags: [appointments]
+      summary: Update an appointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAppointmentBody"
+      responses:
+        "200":
+          description: Updated appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
     delete:
       operationId: deleteAppointment
       tags: [appointments]
@@ -353,6 +376,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/WorkHours"
 
+  /settings/commission:
+    get:
+      operationId: getCommission
+      tags: [dashboard]
+      summary: Get barber commission percentage
+      responses:
+        "200":
+          description: Commission setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionSetting"
+    put:
+      operationId: updateCommission
+      tags: [dashboard]
+      summary: Update barber commission percentage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommissionSetting"
+      responses:
+        "200":
+          description: Updated commission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommissionSetting"
+
 components:
   schemas:
     HealthStatus:
@@ -417,6 +470,30 @@ components:
         - service
         - value
         - durationMinutes
+
+    UpdateAppointmentBody:
+      type: object
+      properties:
+        date:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        service:
+          type: string
+        value:
+          type: number
+
+    CommissionSetting:
+      type: object
+      properties:
+        commissionPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+      required:
+        - commissionPercent
 
     TimerSession:
       type: object

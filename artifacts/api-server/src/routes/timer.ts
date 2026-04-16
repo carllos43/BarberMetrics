@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, timerSessionsTable, appointmentsTable } from "@workspace/db";
+import { db, timerSessionsTable, appointmentsTable, settingsTable } from "@workspace/db";
 import {
   StartTimerResponse,
   GetActiveTimerResponse,
@@ -11,6 +11,11 @@ import {
 const router: IRouter = Router();
 
 const BR_TZ = "America/Sao_Paulo";
+
+async function getCommission(): Promise<number> {
+  const [row] = await db.select().from(settingsTable).where(eq(settingsTable.key, "commission_percent")).limit(1);
+  return row ? parseFloat(row.value) : 60;
+}
 
 function toBRDateStr(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -116,7 +121,8 @@ router.post("/timer/finish", async (req, res): Promise<void> => {
     : parsed.data.service;
 
   const value = parsed.data.value;
-  const barberEarnings = value * 0.6;
+  const commission = await getCommission();
+  const barberEarnings = value * (commission / 100);
 
   const [appointment] = await db
     .insert(appointmentsTable)

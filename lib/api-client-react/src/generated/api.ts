@@ -19,6 +19,7 @@ import type {
 import type {
   Appointment,
   Bill,
+  CommissionSetting,
   CreateAppointmentBody,
   CreateBillBody,
   DailyGoal,
@@ -32,6 +33,7 @@ import type {
   ProductivityStats,
   ProductivityTip,
   TimerSession,
+  UpdateAppointmentBody,
   UpdateDailyGoalBody,
   WorkHours,
 } from "./api.schemas";
@@ -390,6 +392,93 @@ export function useGetAppointment<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Update an appointment
+ */
+export const getUpdateAppointmentUrl = (id: number) => {
+  return `/api/appointments/${id}`;
+};
+
+export const updateAppointment = async (
+  id: number,
+  updateAppointmentBody: UpdateAppointmentBody,
+  options?: RequestInit,
+): Promise<Appointment> => {
+  return customFetch<Appointment>(getUpdateAppointmentUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAppointmentBody),
+  });
+};
+
+export const getUpdateAppointmentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAppointment>>,
+    TError,
+    { id: number; data: BodyType<UpdateAppointmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAppointment>>,
+  TError,
+  { id: number; data: BodyType<UpdateAppointmentBody> },
+  TContext
+> => {
+  const mutationKey = ["updateAppointment"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAppointment>>,
+    { id: number; data: BodyType<UpdateAppointmentBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateAppointment(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAppointmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAppointment>>
+>;
+export type UpdateAppointmentMutationBody = BodyType<UpdateAppointmentBody>;
+export type UpdateAppointmentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an appointment
+ */
+export const useUpdateAppointment = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAppointment>>,
+    TError,
+    { id: number; data: BodyType<UpdateAppointmentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAppointment>>,
+  TError,
+  { id: number; data: BodyType<UpdateAppointmentBody> },
+  TContext
+> => {
+  return useMutation(getUpdateAppointmentMutationOptions(options));
+};
 
 /**
  * @summary Delete appointment
@@ -1709,4 +1798,165 @@ export const useUpdateWorkHours = <
   TContext
 > => {
   return useMutation(getUpdateWorkHoursMutationOptions(options));
+};
+
+/**
+ * @summary Get barber commission percentage
+ */
+export const getGetCommissionUrl = () => {
+  return `/api/settings/commission`;
+};
+
+export const getCommission = async (
+  options?: RequestInit,
+): Promise<CommissionSetting> => {
+  return customFetch<CommissionSetting>(getGetCommissionUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCommissionQueryKey = () => {
+  return [`/api/settings/commission`] as const;
+};
+
+export const getGetCommissionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCommission>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCommission>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCommissionQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCommission>>> = ({
+    signal,
+  }) => getCommission({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCommission>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCommissionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCommission>>
+>;
+export type GetCommissionQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get barber commission percentage
+ */
+
+export function useGetCommission<
+  TData = Awaited<ReturnType<typeof getCommission>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCommission>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCommissionQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update barber commission percentage
+ */
+export const getUpdateCommissionUrl = () => {
+  return `/api/settings/commission`;
+};
+
+export const updateCommission = async (
+  commissionSetting: CommissionSetting,
+  options?: RequestInit,
+): Promise<CommissionSetting> => {
+  return customFetch<CommissionSetting>(getUpdateCommissionUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(commissionSetting),
+  });
+};
+
+export const getUpdateCommissionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCommission>>,
+    TError,
+    { data: BodyType<CommissionSetting> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCommission>>,
+  TError,
+  { data: BodyType<CommissionSetting> },
+  TContext
+> => {
+  const mutationKey = ["updateCommission"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCommission>>,
+    { data: BodyType<CommissionSetting> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateCommission(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCommissionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCommission>>
+>;
+export type UpdateCommissionMutationBody = BodyType<CommissionSetting>;
+export type UpdateCommissionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update barber commission percentage
+ */
+export const useUpdateCommission = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCommission>>,
+    TError,
+    { data: BodyType<CommissionSetting> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCommission>>,
+  TError,
+  { data: BodyType<CommissionSetting> },
+  TContext
+> => {
+  return useMutation(getUpdateCommissionMutationOptions(options));
 };

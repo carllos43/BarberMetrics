@@ -8,6 +8,7 @@
 
 export * from "./appointment";
 export * from "./bill";
+export * from "./commissionSetting";
 export * from "./createAppointmentBody";
 export * from "./createBillBody";
 export * from "./dailyGoal";
@@ -26,5 +27,6 @@ export * from "./productivityTip";
 export * from "./productivityTipType";
 export * from "./serviceBreakdown";
 export * from "./timerSession";
+export * from "./updateAppointmentBody";
 export * from "./updateDailyGoalBody";
 export * from "./workHours";

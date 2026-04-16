@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { 
   useGetFinancialSummary,
   useListBills,
   useCreateBill,
   useDeleteBill,
+  useGetCommission,
+  useUpdateCommission,
   getGetFinancialSummaryQueryKey,
-  getListBillsQueryKey
+  getListBillsQueryKey,
+  getGetCommissionQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -17,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
 import { 
   Dialog,
   DialogContent,
@@ -24,12 +27,32 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Trash2, Plus, Wallet, TrendingDown, Target, CheckCircle2 } from "lucide-react";
+import { Trash2, Plus, Wallet, TrendingDown, Target, CheckCircle2, Percent } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function FinancesPage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
   const [newBill, setNewBill] = useState({ name: "", value: "", dueDay: "" });
+  const [commissionSlider, setCommissionSlider] = useState<number | null>(null);
+
+  const { data: commission, isLoading: isLoadingCommission } = useGetCommission({
+    query: { queryKey: getGetCommissionQueryKey() }
+  });
+
+  const updateCommission = useUpdateCommission({
+    mutation: {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries({ queryKey: getGetCommissionQueryKey() });
+        setCommissionSlider(null);
+        toast({ title: `Comissão atualizada para ${data.commissionPercent}%.` });
+      },
+      onError: () => toast({ title: "Erro ao salvar comissão.", variant: "destructive" }),
+    }
+  });
+
+  const currentCommission = commissionSlider ?? commission?.commissionPercent ?? 60;
 
   const { data: summary, isLoading: isLoadingSummary } = useGetFinancialSummary({
     query: { queryKey: getGetFinancialSummaryQueryKey() }
@@ -150,6 +173,48 @@ export default function FinancesPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Commission Setting */}
+        <Card className="bg-card border-border/50">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-sm font-medium flex items-center text-muted-foreground uppercase tracking-wider">
+              <Percent className="w-4 h-4 mr-2" />
+              Minha Comissão
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-2">
+            {isLoadingCommission ? <Skeleton className="h-12 w-full" /> : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Porcentagem sobre cada serviço</span>
+                  <span className="text-2xl font-bold text-primary">{currentCommission}%</span>
+                </div>
+                <Slider
+                  min={10}
+                  max={100}
+                  step={1}
+                  value={[currentCommission]}
+                  onValueChange={([v]) => setCommissionSlider(v)}
+                  className="w-full"
+                />
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>10%</span>
+                  <span>Exemplo: R$50 → <span className="font-semibold text-foreground">+{formatCurrency(50 * currentCommission / 100)}</span> pra você</span>
+                  <span>100%</span>
+                </div>
+                {commissionSlider !== null && commissionSlider !== commission?.commissionPercent && (
+                  <Button
+                    className="w-full h-10 font-bold"
+                    onClick={() => updateCommission.mutate({ data: { commissionPercent: currentCommission } })}
+                    disabled={updateCommission.isPending}
+                  >
+                    {updateCommission.isPending ? "Salvando..." : "Salvar Comissão"}
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
