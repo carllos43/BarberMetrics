@@ -69,6 +69,13 @@ export interface DashboardSummary {
   goalProgress: number;
   isTimerActive: boolean;
   timerStartedAt?: string | null;
+  minimumDailyGoal: number;
+  chairGoal: number;
+  productivityPercent: number;
+  chairValuePerHour: number;
+  barberEarningsPerHour: number;
+  totalWorkingMinutes: number;
+  totalServiceMinutes: number;
 }
 
 export interface ServiceBreakdown {
@@ -91,6 +98,12 @@ export interface ProductivityStats {
   serviceBreakdown: ServiceBreakdown[];
   dailyAvgClients: number;
   totalEarnings: number;
+  grossRevenue: number;
+  productivityPercent: number;
+  chairValuePerHour: number;
+  barberEarningsPerHour: number;
+  chairGoal: number;
+  minimumDailyGoal: number;
 }
 
 export type ProductivityTipType =

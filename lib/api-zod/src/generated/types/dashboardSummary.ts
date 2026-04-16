@@ -16,4 +16,11 @@ export interface DashboardSummary {
   goalProgress: number;
   isTimerActive: boolean;
   timerStartedAt?: Date | null;
+  minimumDailyGoal: number;
+  chairGoal: number;
+  productivityPercent: number;
+  chairValuePerHour: number;
+  barberEarningsPerHour: number;
+  totalWorkingMinutes: number;
+  totalServiceMinutes: number;
 }

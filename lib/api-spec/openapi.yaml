@@ -511,6 +511,20 @@ components:
           type: string
           format: date-time
           nullable: true
+        minimumDailyGoal:
+          type: number
+        chairGoal:
+          type: number
+        productivityPercent:
+          type: number
+        chairValuePerHour:
+          type: number
+        barberEarningsPerHour:
+          type: number
+        totalWorkingMinutes:
+          type: number
+        totalServiceMinutes:
+          type: number
       required:
         - clientsToday
         - grossRevenue
@@ -520,6 +534,13 @@ components:
         - dailyGoal
         - goalProgress
         - isTimerActive
+        - minimumDailyGoal
+        - chairGoal
+        - productivityPercent
+        - chairValuePerHour
+        - barberEarningsPerHour
+        - totalWorkingMinutes
+        - totalServiceMinutes
 
     ProductivityStats:
       type: object
@@ -533,11 +554,11 @@ components:
         earningsPerHour:
           type: number
         totalWorkingMinutes:
-          type: integer
+          type: number
         totalServiceMinutes:
-          type: integer
+          type: number
         idleMinutes:
-          type: integer
+          type: number
         potentialExtraEarnings:
           type: number
         serviceBreakdown:
@@ -547,6 +568,18 @@ components:
         dailyAvgClients:
           type: number
         totalEarnings:
+          type: number
+        grossRevenue:
+          type: number
+        productivityPercent:
+          type: number
+        chairValuePerHour:
+          type: number
+        barberEarningsPerHour:
+          type: number
+        chairGoal:
+          type: number
+        minimumDailyGoal:
           type: number
       required:
         - period
@@ -560,6 +593,12 @@ components:
         - serviceBreakdown
         - dailyAvgClients
         - totalEarnings
+        - grossRevenue
+        - productivityPercent
+        - chairValuePerHour
+        - barberEarningsPerHour
+        - chairGoal
+        - minimumDailyGoal
 
     ServiceBreakdown:
       type: object

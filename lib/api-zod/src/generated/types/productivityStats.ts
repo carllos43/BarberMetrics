@@ -19,4 +19,10 @@ export interface ProductivityStats {
   serviceBreakdown: ServiceBreakdown[];
   dailyAvgClients: number;
   totalEarnings: number;
+  grossRevenue: number;
+  productivityPercent: number;
+  chairValuePerHour: number;
+  barberEarningsPerHour: number;
+  chairGoal: number;
+  minimumDailyGoal: number;
 }

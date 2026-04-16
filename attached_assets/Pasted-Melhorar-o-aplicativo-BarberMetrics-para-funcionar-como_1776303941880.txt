@@ -1,0 +1,270 @@
+Melhorar o aplicativo BarberMetrics para funcionar como um sistema profissional de produtividade e finanças para barbeiros.
+
+OBJETIVO
+Criar um sistema que controle tempo com precisão, analise produtividade diária e calcule automaticamente metas de faturamento com base na capacidade real da cadeira.
+
+────────────────
+1. SISTEMA DE TEMPO PROFISSIONAL
+
+Substituir qualquer cronômetro baseado em incremento de segundos por um sistema baseado em timestamps.
+
+Quando iniciar um corte:
+
+const startTime = Date.now()
+
+Quando finalizar:
+
+const endTime = Date.now()
+
+Calcular duração:
+
+duration = endTime - startTime
+
+Salvar no banco:
+
+start_time_utc
+end_time_utc
+duration_ms
+
+Sempre salvar timestamps em UTC.
+
+────────────────
+2. CORREÇÃO DE FUSO HORÁRIO
+
+Exibir horários sempre no horário do Brasil.
+
+Converter usando:
+
+new Date(timestamp).toLocaleTimeString("pt-BR", {
+ timeZone: "America/Sao_Paulo",
+ hour: "2-digit",
+ minute: "2-digit"
+})
+
+Exemplo no histórico:
+
+21:16 → 21:33
+17 min
+Corte
+R$30
++R$18
+
+────────────────
+3. TIMER RESISTENTE A TELA BLOQUEADA
+
+Salvar startTime no localStorage.
+
+localStorage.setItem("activeCutStart", startTime)
+
+Ao abrir o app novamente recuperar:
+
+const savedStart = localStorage.getItem("activeCutStart")
+
+Recalcular o tempo decorrido automaticamente.
+
+Garantir funcionamento mesmo se:
+- celular bloquear
+- usuário trocar de aba
+- página atualizar
+
+────────────────
+4. HISTÓRICO DE CORTES
+
+Cada item do histórico deve mostrar:
+
+hora_inicio → hora_fim
+duração em minutos
+serviço
+valor
+lucro do barbeiro
+
+Exemplo:
+
+21:16 → 21:33
+17 min
+Corte
+R$30
++R$18
+
+────────────────
+5. RESUMO DO DIA NO TOPO DA TELA
+
+Adicionar painel com métricas do dia.
+
+Mostrar:
+
+Tempo trabalhando
+Tempo atendendo
+Tempo parado
+Produtividade
+Tempo médio de corte
+Valor por hora da cadeira
+Ganho do barbeiro por hora
+
+Exemplo:
+
+Hoje
+
+⏱ Trabalhando: 4h20
+✂️ Atendendo: 2h45
+⌛ Parado: 1h35
+
+📈 Produtividade: 63%
+⏳ Tempo médio: 23 min
+
+💺 Valor da cadeira: R$101/h
+💰 Seu ganho por hora: R$61/h
+
+────────────────
+6. CÁLCULO DAS MÉTRICAS
+
+Tempo atendendo:
+somar duração de todos os cortes.
+
+Tempo trabalhando:
+diferença entre o primeiro corte e o último corte.
+
+Tempo parado:
+tempo_trabalhando - tempo_atendendo.
+
+Produtividade:
+
+produtividade = tempo_atendendo / tempo_trabalhando
+
+Tempo médio:
+
+tempo_medio = soma_duração / número_de_cortes
+
+────────────────
+7. VALOR POR HORA DA CADEIRA
+
+Calcular:
+
+chair_hour_value = faturamento_bruto / horas_atendendo
+
+Mostrar:
+
+💺 Valor da cadeira: R$XXX/h
+
+────────────────
+8. GANHO DO BARBEIRO POR HORA
+
+Calcular:
+
+barber_hour_value = lucro_barbeiro / horas_atendendo
+
+Mostrar:
+
+💰 Seu ganho por hora: R$XXX/h
+
+────────────────
+9. META AUTOMÁTICA DA CADEIRA
+
+Criar sistema de meta automática baseado na capacidade real da cadeira.
+
+Usar:
+
+tempo médio de corte
+horas trabalhadas
+ticket médio
+
+Calcular:
+
+clientes_possiveis = minutos_trabalhados / tempo_medio
+
+meta_capacidade = clientes_possiveis × ticket_medio
+
+Exibir:
+
+Meta ideal do dia
+
+Exemplo:
+
+Meta da cadeira hoje
+R$680
+
+────────────────
+10. META MÍNIMA FINANCEIRA
+
+Permitir cadastrar despesas mensais.
+
+Exemplo:
+
+pensão
+água
+luz
+manutenção
+outros
+
+Calcular:
+
+meta_minima_dia = despesas_mensais / dias_trabalhados
+
+Exibir também:
+
+Meta mínima do dia
+
+────────────────
+11. PROGRESSO DAS METAS
+
+Mostrar progresso automático.
+
+Exemplo:
+
+Hoje
+
+Faturamento: R$320
+
+Meta mínima
+R$120 ✔
+
+Meta ideal
+R$680
+
+Progresso
+R$320 / R$680
+
+Faltam R$360
+≈ 11 cortes
+
+────────────────
+12. CORES DE PRODUTIVIDADE
+
+vermelho: < 40%
+amarelo: 40–65%
+verde: > 65%
+
+────────────────
+13. INTERFACE
+
+Mostrar métricas em cards grandes.
+
+Cards:
+
+Produtividade
+Tempo médio
+Valor da cadeira
+Ganho por hora
+Meta diária
+
+Interface otimizada para celular.
+
+────────────────
+14. PERFORMANCE
+
+Melhorar atualização do timer para ser fluida em dispositivos móveis.
+
+Evitar atraso ao clicar iniciar ou finalizar corte.
+
+────────────────
+RESULTADO
+
+O BarberMetrics deve funcionar como um sistema profissional de gestão de barbearia que mostra claramente:
+
+- quanto tempo o barbeiro trabalhou
+- quanto tempo ficou parado
+- produtividade do dia
+- valor da cadeira por hora
+- ganho por hora do barbeiro
+- meta mínima para pagar contas
+- meta ideal baseada na capacidade da cadeira

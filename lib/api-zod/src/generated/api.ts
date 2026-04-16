@@ -184,6 +184,13 @@ export const GetDashboardSummaryResponse = zod.object({
   goalProgress: zod.number(),
   isTimerActive: zod.boolean(),
   timerStartedAt: zod.coerce.date().nullish(),
+  minimumDailyGoal: zod.number(),
+  chairGoal: zod.number(),
+  productivityPercent: zod.number(),
+  chairValuePerHour: zod.number(),
+  barberEarningsPerHour: zod.number(),
+  totalWorkingMinutes: zod.number(),
+  totalServiceMinutes: zod.number(),
 });
 
 /**
@@ -217,6 +224,12 @@ export const GetProductivityStatsResponse = zod.object({
   ),
   dailyAvgClients: zod.number(),
   totalEarnings: zod.number(),
+  grossRevenue: zod.number(),
+  productivityPercent: zod.number(),
+  chairValuePerHour: zod.number(),
+  barberEarningsPerHour: zod.number(),
+  chairGoal: zod.number(),
+  minimumDailyGoal: zod.number(),
 });
 
 /**

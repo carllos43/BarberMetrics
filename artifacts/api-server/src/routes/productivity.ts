@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, gte, lte } from "drizzle-orm";
-import { db, appointmentsTable, settingsTable } from "@workspace/db";
+import { db, appointmentsTable, settingsTable, billsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   GetProductivityStatsQueryParams,
@@ -11,9 +11,16 @@ import {
 
 const router: IRouter = Router();
 
+function toBRDateStr(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(date);
+}
+
 function getPeriodDates(period: string): { start: string; end: string; daysInPeriod: number } {
   const now = new Date();
-  const today = now.toISOString().split("T")[0];
+  const today = toBRDateStr(now);
 
   if (period === "today") {
     return { start: today, end: today, daysInPeriod: 1 };
@@ -46,32 +53,73 @@ function getPeriodDates(period: string): { start: string; end: string; daysInPer
   return { start: today, end: today, daysInPeriod: 1 };
 }
 
+// Parse "HH:MM:SS" or "HH:MM" time string → total minutes from midnight
+function timeStrToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+// Calculate real working time from sorted appointments
+function calcWorkingMinutes(apts: { startTime: string; endTime: string }[]): number {
+  if (apts.length === 0) return 0;
+  const sorted = [...apts].sort((a, b) => timeStrToMinutes(a.startTime) - timeStrToMinutes(b.startTime));
+  const firstStart = timeStrToMinutes(sorted[0].startTime);
+  const lastEnd = timeStrToMinutes(sorted[sorted.length - 1].endTime);
+  return Math.max(0, lastEnd - firstStart);
+}
+
 router.get("/productivity/stats", async (req, res): Promise<void> => {
   const query = GetProductivityStatsQueryParams.safeParse(req.query);
   const period = query.success ? (query.data.period ?? "today") : "today";
   const { start, end, daysInPeriod } = getPeriodDates(period);
 
-  const appointments = await db
-    .select()
-    .from(appointmentsTable)
-    .where(and(gte(appointmentsTable.date, start), lte(appointmentsTable.date, end)));
+  const [appointments, bills] = await Promise.all([
+    db.select().from(appointmentsTable).where(and(gte(appointmentsTable.date, start), lte(appointmentsTable.date, end))),
+    db.select().from(billsTable),
+  ]);
 
   const totalClients = appointments.length;
-  const totalDuration = appointments.reduce((sum, a) => sum + a.durationMinutes, 0);
+  const totalServiceMinutes = appointments.reduce((sum, a) => sum + a.durationMinutes, 0);
   const totalEarnings = appointments.reduce((sum, a) => sum + parseFloat(a.barberEarnings), 0);
-  const avgDurationMinutes = totalClients > 0 ? totalDuration / totalClients : 0;
+  const grossRevenue = appointments.reduce((sum, a) => sum + parseFloat(a.value), 0);
+  const avgDurationMinutes = totalClients > 0 ? totalServiceMinutes / totalClients : 0;
+  const avgTicket = totalClients > 0 ? grossRevenue / totalClients : 0;
 
-  // Get work hours setting
-  const [hoursRow] = await db.select().from(settingsTable).where(eq(settingsTable.key, "hours_per_day")).limit(1);
-  const hoursPerDay = hoursRow ? parseFloat(hoursRow.value) : 8;
-  const totalWorkingMinutes = daysInPeriod * hoursPerDay * 60;
-  const totalServiceMinutes = totalDuration;
+  // Real working time: first appointment start → last appointment end
+  // For multi-day periods, sum each day's working time
+  let totalWorkingMinutes = 0;
+  if (period === "today") {
+    totalWorkingMinutes = calcWorkingMinutes(appointments);
+  } else {
+    // Group by date and calculate per day
+    const byDate: Record<string, { startTime: string; endTime: string }[]> = {};
+    for (const a of appointments) {
+      if (!byDate[a.date]) byDate[a.date] = [];
+      byDate[a.date].push({ startTime: a.startTime, endTime: a.endTime });
+    }
+    for (const day of Object.values(byDate)) {
+      totalWorkingMinutes += calcWorkingMinutes(day);
+    }
+  }
+
   const idleMinutes = Math.max(0, totalWorkingMinutes - totalServiceMinutes);
+  const productivityPercent = totalWorkingMinutes > 0 ? (totalServiceMinutes / totalWorkingMinutes) * 100 : 0;
 
-  const earningsPerHour = totalDuration > 0 ? (totalEarnings / totalDuration) * 60 : 0;
+  const attendingHours = totalServiceMinutes / 60;
+  const earningsPerHour = attendingHours > 0 ? totalEarnings / attendingHours : 0;
+  const chairValuePerHour = attendingHours > 0 ? grossRevenue / attendingHours : 0;
+  const barberEarningsPerHour = earningsPerHour;
 
-  // Potential extra earnings if idle time was used
-  const avgValuePerMin = totalDuration > 0 ? totalEarnings / totalDuration : 0;
+  // Chair auto goal: if we filled working time with avg cuts
+  const clientsPossible = avgDurationMinutes > 0 ? totalWorkingMinutes / avgDurationMinutes : 0;
+  const chairGoal = clientsPossible * avgTicket;
+
+  // Minimum daily goal from bills
+  const totalBills = bills.reduce((sum, b) => sum + parseFloat(b.value), 0);
+  const minimumDailyGoal = Math.ceil(totalBills / 22);
+
+  // Potential extra earnings
+  const avgValuePerMin = totalServiceMinutes > 0 ? totalEarnings / totalServiceMinutes : 0;
   const potentialExtraEarnings = idleMinutes * avgValuePerMin;
 
   // Service breakdown
@@ -103,6 +151,12 @@ router.get("/productivity/stats", async (req, res): Promise<void> => {
     totalWorkingMinutes,
     totalServiceMinutes,
     idleMinutes,
+    grossRevenue,
+    productivityPercent,
+    chairValuePerHour,
+    barberEarningsPerHour,
+    chairGoal,
+    minimumDailyGoal,
     potentialExtraEarnings,
     serviceBreakdown,
     dailyAvgClients,

@@ -10,6 +10,27 @@ import {
 
 const router: IRouter = Router();
 
+const BR_TZ = "America/Sao_Paulo";
+
+function toBRDateStr(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: BR_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function toBRTimeStr(date: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: BR_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 router.post("/timer/start", async (req, res): Promise<void> => {
   // Deactivate any existing active timer
   await db
@@ -85,9 +106,10 @@ router.post("/timer/finish", async (req, res): Promise<void> => {
       .where(eq(timerSessionsTable.id, session.id));
   }
 
-  const today = now.toISOString().split("T")[0];
-  const startTimeStr = startedAt.toTimeString().slice(0, 8);
-  const endTimeStr = now.toTimeString().slice(0, 8);
+  // Store date and times in Brazil timezone so history displays correctly
+  const today = toBRDateStr(now);
+  const startTimeStr = toBRTimeStr(startedAt);
+  const endTimeStr = toBRTimeStr(now);
 
   const serviceName = parsed.data.customService && parsed.data.service === "outro"
     ? parsed.data.customService

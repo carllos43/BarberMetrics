@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte } from "drizzle-orm";
-import { db, appointmentsTable, timerSessionsTable, settingsTable } from "@workspace/db";
+import { db, appointmentsTable, timerSessionsTable, settingsTable, billsTable } from "@workspace/db";
 import {
   GetDashboardSummaryResponse,
   GetDailyGoalResponse,
@@ -41,34 +41,55 @@ async function upsertSetting(key: string, value: string): Promise<void> {
 
 router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const now = new Date();
-  const today = now.toISOString().split("T")[0];
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
 
-  const todayAppointments = await db
-    .select()
-    .from(appointmentsTable)
-    .where(and(gte(appointmentsTable.date, today), lte(appointmentsTable.date, today)));
+  const [todayAppointments, timerResult, bills, dailyGoal] = await Promise.all([
+    db.select().from(appointmentsTable).where(and(gte(appointmentsTable.date, today), lte(appointmentsTable.date, today))),
+    db.select().from(timerSessionsTable).where(eq(timerSessionsTable.isActive, true)).limit(1),
+    db.select().from(billsTable),
+    getSetting("daily_goal", "200").then(parseFloat),
+  ]);
 
-  const [activeTimer] = await db
-    .select()
-    .from(timerSessionsTable)
-    .where(eq(timerSessionsTable.isActive, true))
-    .limit(1);
-
-  const dailyGoal = parseFloat(await getSetting("daily_goal", "200"));
+  const [activeTimer] = timerResult;
 
   const grossRevenue = todayAppointments.reduce((sum, a) => sum + parseFloat(a.value), 0);
   const barberEarnings = todayAppointments.reduce((sum, a) => sum + parseFloat(a.barberEarnings), 0);
-  const totalDuration = todayAppointments.reduce((sum, a) => sum + a.durationMinutes, 0);
-  const avgDurationMinutes = todayAppointments.length > 0 ? totalDuration / todayAppointments.length : 0;
+  const totalServiceMinutes = todayAppointments.reduce((sum, a) => sum + a.durationMinutes, 0);
+  const totalClients = todayAppointments.length;
+  const avgDurationMinutes = totalClients > 0 ? totalServiceMinutes / totalClients : 0;
+  const avgTicket = totalClients > 0 ? grossRevenue / totalClients : 0;
 
-  // Earnings per hour based on total time working
-  const hoursWorked = totalDuration / 60;
-  const earningsPerHour = hoursWorked > 0 ? barberEarnings / hoursWorked : 0;
+  // Real working time: first startTime → last endTime
+  let totalWorkingMinutes = 0;
+  if (todayAppointments.length > 0) {
+    const timeToMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
+    const sorted = [...todayAppointments].sort((a, b) => timeToMin(a.startTime) - timeToMin(b.startTime));
+    totalWorkingMinutes = Math.max(0, timeToMin(sorted[sorted.length - 1].endTime) - timeToMin(sorted[0].startTime));
+  }
+
+  const attendingHours = totalServiceMinutes / 60;
+  const earningsPerHour = attendingHours > 0 ? barberEarnings / attendingHours : 0;
+  const chairValuePerHour = attendingHours > 0 ? grossRevenue / attendingHours : 0;
+  const barberEarningsPerHour = earningsPerHour;
+  const productivityPercent = totalWorkingMinutes > 0 ? (totalServiceMinutes / totalWorkingMinutes) * 100 : 0;
+
+  // Chair goal: capacity-based (how much could be earned if working time was fully used)
+  const clientsPossible = avgDurationMinutes > 0 && totalWorkingMinutes > 0
+    ? totalWorkingMinutes / avgDurationMinutes
+    : 0;
+  const chairGoal = clientsPossible * avgTicket;
+
+  // Minimum daily goal from registered monthly bills
+  const totalBillsValue = bills.reduce((sum, b) => sum + parseFloat(b.value), 0);
+  const minimumDailyGoal = Math.ceil(totalBillsValue / 22);
 
   const goalProgress = dailyGoal > 0 ? Math.min(100, (barberEarnings / dailyGoal) * 100) : 0;
 
   res.json(GetDashboardSummaryResponse.parse({
-    clientsToday: todayAppointments.length,
+    clientsToday: totalClients,
     grossRevenue,
     barberEarnings,
     avgDurationMinutes,
@@ -77,6 +98,13 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
     goalProgress,
     isTimerActive: !!activeTimer,
     timerStartedAt: activeTimer ? activeTimer.startedAt.toISOString() : null,
+    minimumDailyGoal,
+    chairGoal,
+    productivityPercent,
+    chairValuePerHour,
+    barberEarningsPerHour,
+    totalWorkingMinutes,
+    totalServiceMinutes,
   }));
 });
 
