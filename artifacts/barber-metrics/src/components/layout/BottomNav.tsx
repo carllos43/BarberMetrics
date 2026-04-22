@@ -15,25 +15,26 @@ export function BottomNav() {
   const [location] = useLocation();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border flex items-center justify-around px-1 z-50">
-      {navItems.map((item) => {
-        const isActive = location === item.path;
-        const Icon = item.icon;
-
-        return (
-          <Link
-            key={item.path}
-            href={item.path}
-            className={cn(
-              "flex flex-col items-center justify-center flex-1 h-14 rounded-lg transition-colors min-w-0",
-              isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Icon className="h-5 w-5 mb-0.5" strokeWidth={isActive ? 2.5 : 2} />
-            <span className="text-[9px] font-medium leading-tight">{item.label}</span>
-          </Link>
-        );
-      })}
+    <div className="fixed bottom-0 left-0 right-0 z-50 max-w-md mx-auto pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-3 mb-3 h-16 glass-strong rounded-2xl flex items-center justify-around px-1 shadow-2xl">
+        {navItems.map((item) => {
+          const isActive = location === item.path;
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.path}
+              href={item.path}
+              className={cn(
+                "flex flex-col items-center justify-center flex-1 h-14 rounded-xl transition-all min-w-0",
+                isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="h-5 w-5 mb-0.5" strokeWidth={isActive ? 2.5 : 2} />
+              <span className="text-[9px] font-medium leading-tight">{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -71,6 +71,37 @@ serviços e nos controllers. Trocar o storage = trocar uma classe.
 - App renderiza `LoginPage` quando sem sessão, rotas protegidas quando logado
 - **Frontend não fala mais com banco direto** (Supabase e `localDatabase` removidos)
 
+### Design system
+
+Estilo iOS-like, dark, glassmorphism + gradientes sutis. Tudo aplicado via
+classes utilitárias em `src/index.css`:
+
+- `.glass` / `.glass-strong` — superfícies com `backdrop-filter` + borda branca a 8%
+- `.lift` — hover subindo `-2px` com sombra
+- `.icon-pill` + `.grad-{amber,green,blue,purple,rose,slate}` — pílulas de ícone com gradiente iOS
+- `.glow-primary` — halo âmbar para o timer ativo
+- `Card` (`components/ui/card.tsx`) já é glass por padrão, raio 16px, padding 16px
+
+Layout mobile (`MobileLayout`) tem header glass com botão ⚙️ que abre o
+modal global de configurações.
+
+### Settings system
+
+- `lib/settings.tsx`: `SettingsProvider` + `useSettings()` + `useOpenSettings()`,
+  persiste em `localStorage`
+- `components/SettingsModal.tsx`: modal com 4 abas — Geral, Timer, Finanças, Relatórios
+- A comissão padrão é a única configuração que vai pra API (`PUT /api/commission`);
+  o resto é preferência cliente (formato de data, agrupamento de gráfico,
+  categorias de despesa, incluir cliente/comissão no PDF, etc.)
+- Botão de Sair também vive dentro do modal
+
+### Relatório PDF
+
+`lib/pdf.ts` usa `jspdf` + `jspdf-autotable` para gerar PDF estruturado
+(NÃO screenshot) com cabeçalho colorido, tabela de resumo financeiro,
+detalhamento e bloco de assinatura/totais. Filtros rápidos: Hoje, 7 dias,
+30 dias, este mês, e personalizado com dois inputs de data.
+
 ## Variáveis de ambiente
 
 | Variável            | Obrigatória | Descrição                                       |

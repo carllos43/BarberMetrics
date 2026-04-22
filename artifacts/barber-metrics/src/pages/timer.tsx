@@ -210,8 +210,10 @@ export default function TimerPage() {
             transition={{ type: "spring", stiffness: 260, damping: 22 }}
           >
             {/* Clock face */}
-            <div className={`text-8xl font-bold font-mono tracking-tighter tabular-nums transition-colors duration-300 ${timerColor}`}>
-              {formatTime(elapsed)}
+            <div className={`px-8 py-5 rounded-3xl glass-strong ${isActive && !isWarning && !isDanger ? "glow-primary" : ""}`}>
+              <div className={`text-7xl font-bold font-mono tracking-tighter tabular-nums transition-colors duration-300 ${timerColor}`}>
+                {formatTime(elapsed)}
+              </div>
             </div>
 
             {/* Status badge */}

@@ -1,0 +1,249 @@
+You are a senior full-stack engineer and product designer specialized in SaaS dashboards.
+
+Your task is to refactor and upgrade my application into a professional, scalable, and visually premium system.
+
+CRITICAL RULES:
+- Do NOT break existing functionality
+- Do NOT change core business logic unless necessary for consistency
+- Focus on architecture, UI consistency, and real product quality
+- Everything must be interconnected (single source of truth)
+
+========================================
+1. GLOBAL VISUAL SYSTEM (iOS-INSPIRED)
+========================================
+
+Apply a consistent, premium UI across ALL pages:
+
+- Glassmorphism + subtle gradients
+- Rounded corners (12px–20px)
+- Soft shadows
+- Background: dark (#0f0f0f or similar)
+
+Cards style:
+- background: rgba(255,255,255,0.05)
+- border: 1px solid rgba(255,255,255,0.08)
+- border-radius: 16px
+- padding: 16px
+
+Icons:
+- Gradient backgrounds (iOS-style)
+- Smooth hover animations
+
+Microinteractions:
+- hover: slight lift (translateY -2px)
+- smooth transitions (0.2s ease)
+
+========================================
+2. DASHBOARD / HOME
+========================================
+
+Top summary cards:
+- Revenue
+- Services count
+- Hours worked
+- Average ticket
+
+Cards must include:
+- value
+- label
+- icon
+- optional trend (+% or -%)
+
+Use gradient accents:
+- Green (money)
+- Purple (services)
+- Blue (time)
+
+========================================
+3. TIMER PAGE (VISUAL ONLY)
+========================================
+
+- Apply same card system
+- Add clear active timer state
+- Highlight running timer with subtle glow
+- Keep UI minimal and focused
+
+========================================
+4. HISTORY PAGE (VISUAL ONLY)
+========================================
+
+- Group entries by day (Today, Yesterday, etc.)
+- Each item styled as card:
+  - service
+  - time
+  - value
+- Maintain spacing and hierarchy
+
+========================================
+5. METRICS PAGE
+========================================
+
+Structure:
+1. Summary cards (reuse from dashboard)
+2. Main chart
+3. Detailed breakdown
+
+Charts:
+- Use single-color lines
+- Add soft gradient fill
+- Avoid multiple colors
+
+Add:
+- trend indicators (+/- %)
+- clear labels
+
+========================================
+6. FINANCE PAGE
+========================================
+
+Top:
+- Revenue (green)
+- Expenses (red)
+- Profit (highlighted)
+
+Transactions list:
+- grouped by date
+- clear positive/negative values
+- icons with gradient colors
+
+NEVER mix income and expense visually.
+
+========================================
+7. REPORT PAGE (MAJOR UPGRADE)
+========================================
+
+Add date filtering system:
+
+- Quick filters:
+  - Today
+  - Last 7 days
+  - Last 30 days
+
+- Custom range:
+  - Start date
+  - End date
+
+UI must include a calendar picker.
+
+----------------------------------------
+PDF GENERATION (CRITICAL)
+----------------------------------------
+
+Implement real PDF export (NOT screenshot).
+
+The report must include:
+
+Header:
+- App name
+- Report title
+- Date range
+
+Summary:
+- Revenue
+- Expenses
+- Profit
+
+Detailed table:
+- Date
+- Service
+- Client (optional)
+- Value
+- Commission
+
+Footer:
+- Totals
+- Hours worked
+- Signature placeholder
+
+Use a structured layout suitable for financial/legal usage.
+
+Preferred:
+- jsPDF (frontend) OR
+- backend PDF generation for higher quality
+
+========================================
+8. SETTINGS SYSTEM (CRITICAL)
+========================================
+
+Create a global + modular settings system.
+
+GLOBAL SETTINGS:
+- Business name
+- Default commission
+- Currency
+- Date format
+
+PER PAGE SETTINGS:
+
+Timer:
+- hourly rate
+- auto/manual mode
+
+Finance:
+- expense categories
+- include commission toggle
+
+Metrics:
+- chart grouping (daily/weekly/monthly)
+
+Reports:
+- include client (on/off)
+- include commission (on/off)
+
+----------------------------------------
+UI:
+----------------------------------------
+
+- Add a settings icon (⚙️) on ALL pages
+- Open modal with organized sections
+- Clean layout, consistent with system
+
+========================================
+9. DATA ARCHITECTURE (MOST IMPORTANT)
+========================================
+
+Enforce SINGLE SOURCE OF TRUTH.
+
+All data must come from a central structure:
+
+transactions → feeds everything
+
+From transactions derive:
+- finance
+- metrics
+- reports
+
+DO NOT:
+- duplicate logic
+- calculate separately per page
+
+----------------------------------------
+EXAMPLE:
+----------------------------------------
+
+A service entry must automatically affect:
+- revenue
+- metrics
+- reports
+- commissions
+
+========================================
+10. STATE MANAGEMENT
+========================================
+
+Use centralized state (Context API, Zustand, or similar).
+
+Any update must reflect across ALL pages instantly.
+
+========================================
+11. FINAL GOAL
+========================================
+
+Transform the system into:
+- a professional SaaS product
+- visually premium
+- logically consistent
+- financially reliable
+
+Avoid superficial changes.
+Focus on structure, clarity, and scalability.

@@ -530,11 +530,37 @@ export default function AppointmentsPage() {
               </Button>
             </div>
           ) : (
-            appointments?.map((apt) => {
-              let aptDate: Date;
-              try { aptDate = parseISO(apt.date); } catch { aptDate = new Date(); }
-
-              return (
+            (() => {
+              const today = todayBR();
+              const yest = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(d); })();
+              const groups = new Map<string, typeof appointments>();
+              appointments?.forEach(a => {
+                const arr = groups.get(a.date) ?? [];
+                arr.push(a);
+                groups.set(a.date, arr);
+              });
+              const labelOf = (d: string) => {
+                if (d === today) return "Hoje";
+                if (d === yest) return "Ontem";
+                try { return format(parseISO(d), "EEEE, dd 'de' MMM", { locale: ptBR }); }
+                catch { return d; }
+              };
+              return Array.from(groups.entries()).map(([date, items]) => {
+                const dayTotal = items?.reduce((s, a) => s + a.value, 0) ?? 0;
+                const dayEarn = items?.reduce((s, a) => s + a.barberEarnings, 0) ?? 0;
+                return (
+                  <div key={date} className="space-y-2">
+                    <div className="flex items-center justify-between px-1 pt-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{labelOf(date)}</h3>
+                      <span className="text-[11px] text-muted-foreground">
+                        {items?.length} · <span className="text-foreground font-semibold">{formatCurrency(dayTotal)}</span>
+                        {" · "}<span className="text-primary font-semibold">+{formatCurrency(dayEarn)}</span>
+                      </span>
+                    </div>
+                    {items?.map((apt) => {
+                      let aptDate: Date;
+                      try { aptDate = parseISO(apt.date); } catch { aptDate = new Date(); }
+                      return (
                 <motion.div key={apt.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                   <Card className="bg-card border-border/40 overflow-hidden">
                     <CardContent className="p-0">
@@ -583,7 +609,11 @@ export default function AppointmentsPage() {
                   </Card>
                 </motion.div>
               );
-            })
+                    })}
+                  </div>
+                );
+              });
+            })()
           )}
         </div>
       </div>

@@ -11,9 +11,9 @@ import FinancesPage from "@/pages/finances";
 import ReportsPage from "@/pages/reports";
 import LoginPage from "@/pages/login";
 import { useEffect, useState } from "react";
-import {
-  fetchMe, getSession, onAuthChange, type AuthSession,
-} from "@/lib/auth";
+import { fetchMe, getSession, onAuthChange, type AuthSession } from "@/lib/auth";
+import { SettingsProvider } from "@/lib/settings";
+import { SettingsModal } from "@/components/SettingsModal";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +34,7 @@ function AppRoutes() {
 function App() {
   const [session, setSession] = useState<AuthSession | null>(getSession());
   const [loadingSession, setLoadingSession] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
@@ -53,7 +54,7 @@ function App() {
 
   if (loadingSession && !session) {
     return (
-      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
+      <div className="min-h-[100dvh] flex items-center justify-center">
         <div className="text-muted-foreground text-sm">Carregando...</div>
       </div>
     );
@@ -62,14 +63,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {session ? (
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <AppRoutes />
-          </WouterRouter>
-        ) : (
-          <LoginPage />
-        )}
-        <Toaster />
+        <SettingsProvider onOpenModal={() => setSettingsOpen(true)}>
+          {session ? (
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <AppRoutes />
+            </WouterRouter>
+          ) : (
+            <LoginPage />
+          )}
+          <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+          <Toaster />
+        </SettingsProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
