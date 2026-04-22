@@ -1,25 +1,13 @@
-import app from "./app";
+import { createApp } from "./app";
 import { logger } from "./lib/logger";
+import { env } from "./config/env";
 
-const rawPort = process.env["PORT"];
+const app = createApp();
 
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
-app.listen(port, (err) => {
+app.listen(env.PORT, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
-
-  logger.info({ port }, "Server listening");
+  logger.info({ port: env.PORT, env: env.NODE_ENV }, "API server listening");
 });

@@ -1,12 +1,12 @@
 import { pgTable, serial, text, integer, numeric, timestamp, uuid, index } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
 import { usersTable } from "./users";
+import { barbershopsTable } from "./barbershops";
 
 export const billsTable = pgTable(
   "bills",
   {
     id: serial("id").primaryKey(),
+    barbershopId: uuid("barbershop_id").notNull().references(() => barbershopsTable.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     value: numeric("value", { precision: 10, scale: 2 }).notNull(),
@@ -15,10 +15,8 @@ export const billsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    userIdx: index("bills_user_idx").on(t.userId),
+    bsIdx: index("bills_bs_idx").on(t.barbershopId),
   }),
 );
 
-export const insertBillSchema = createInsertSchema(billsTable).omit({ id: true, createdAt: true });
-export type InsertBill = z.infer<typeof insertBillSchema>;
 export type Bill = typeof billsTable.$inferSelect;

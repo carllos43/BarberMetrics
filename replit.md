@@ -1,62 +1,110 @@
-# Workspace
+# BarberMetrics
 
-## Overview
+SaaS de produtividade financeira para barbeiros, com timer de cortes, controle de
+atendimentos, contas e dashboards. Estrutura monorepo `pnpm` + TypeScript.
 
-pnpm workspace monorepo using TypeScript. Contains the **BarberMetrics** SaaS — a professional tool for barbers to control haircut time, register appointments, analyze productivity, and manage personal finances. Optimized for mobile use.
+## Arquitetura
 
-## Stack
+```
+artifacts/
+  api-server/          # Express + TS, layered (routes → controllers → services → repositories)
+  barber-metrics/      # React + Vite (mobile-first PWA)
+  mockup-sandbox/      # canvas de mockups (workspace tool)
+lib/
+  db/                  # Drizzle ORM + schemas Postgres (multi-tenant)
+  api-spec/            # OpenAPI 3.1 source of truth
+  api-zod/             # Zod schemas gerados do OpenAPI
+  api-client-react/    # cliente HTTP gerado + setAuthTokenGetter
+```
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **Frontend**: React + Vite (artifacts/barber-metrics) — served at `/`
-- **API framework**: Express 5 (artifacts/api-server) — served at `/api`
-- **Database**: Supabase PostgreSQL + Drizzle ORM (via transaction pooler)
-- **Auth**: Supabase Auth (email/senha). Backend valida JWT via `supabase.auth.getUser(token)`; middleware faz upsert em `users` e injeta `req.userId` em todas as rotas protegidas (exceto `/healthz`).
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
-- **UI**: Tailwind CSS, Radix UI, Recharts, Framer Motion
+### Multi-tenancy
 
-## Key Features
+Toda escrita/leitura de dados é escopada por `barbershop_id`. O cadastro
+(`/api/auth/signup`) cria atomicamente: usuário + barbearia pessoal +
+membership(role=owner). O JWT carrega `sub` (userId), `email`, `bsId` e `role`.
+O `tenantMiddleware` garante que toda rota protegida tenha `barbershopId`
+resolvido antes de chegar ao serviço; os repositórios filtram por
+`barbershopId` em **todas** as consultas, garantindo isolamento por código.
 
-- **Dashboard**: Real-time today stats — clients, gross revenue, barber earnings (60%), avg duration, earnings/hour, daily goal progress
-- **Timer**: Haircut stopwatch with 20/25 min alerts; finish flow with service selection
-- **Appointments**: History with period filter (today/week/month/year)
-- **Productivity**: Analytics with service breakdown chart, idle time analysis, smart tips
-- **Finances**: Monthly bill management, financial projection, surplus/shortfall tracking
+### Autenticação
 
-## Database Tables (multi-tenant — todas escopadas por `userId`)
+Auth self-contained com **bcrypt + JWT (HS256)** assinada pelo backend.
+Decisão deliberada: o ambiente não tem Supabase configurada, e auth local
+elimina dependência externa, mantém o JWT como contrato e funciona pronto.
 
-- `users` — uuid PK = Supabase auth user id; `email`, `fullName`, `role`, `commissionPercent` (default 60)
-- `appointments` — registros de corte com tempo, serviço, valor, comissão do barbeiro (FK userId)
-- `bills` — contas fixas mensais (FK userId)
-- `timer_sessions` — controle de timer ativo (FK userId)
-- `settings` — config chave-valor por usuário (unique composto em userId+key)
+- `JWT_SECRET` (env): obrigatória em produção; em dev gera-se uma efêmera.
+- `JWT_TTL_SECONDS`: padrão 7 dias.
+- `BCRYPT_ROUNDS`: padrão 10.
 
-## Relatórios
+Endpoints públicos: `POST /api/auth/signup`, `POST /api/auth/login`,
+`GET /api/healthz`. Tudo o mais exige `Authorization: Bearer <jwt>`.
 
-- `GET /reports/statement?from=YYYY-MM-DD&to=YYYY-MM-DD` — extrato financeiro do período (atendimentos, contas, totais)
-- Página `/relatorios` na BottomNav (6º ícone)
+### Segurança HTTP
 
-## Secrets necessários
+- `helmet` (headers seguros)
+- `cors` com allowlist (`CORS_ORIGINS` separado por vírgulas; vazio = permissivo em dev)
+- `express-rate-limit` global (240 req/min) + estrito em `/auth/*` (10 req/min)
+- `express.json({ limit: "256kb" })`
+- `validate({ body, params, query })` com Zod em toda rota mutating
+- Envelope padronizado de erros: `{ success: false, error: string }`
+- Respostas de sucesso seguem o schema OpenAPI (compatibilidade com cliente gerado)
 
-- `SUPABASE_URL` — URL do projeto (https://PROJREF.supabase.co)
-- `SUPABASE_ANON_KEY` — anon key pública
-- `SUPABASE_DATABASE_URL` — connection string do **Transaction pooler** (porta 6543, host `aws-X-REGION.pooler.supabase.com`). Conexão direta `db.PROJREF.supabase.co` NÃO funciona no Replit (IPv6-only).
+### Camadas (exemplo `appointments`)
 
-## Key Commands
+```
+http/routes/index.ts            → mapeia URL → controller
+modules/appointments/
+  appointments.controller.ts    → traduz HTTP ↔ DTO, sem regras de negócio
+  appointments.service.ts       → regras (cálculo de comissão, validações)
+  appointments.repository.ts    → única camada que toca no Drizzle/DB
+```
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+`container.ts` é o composition root: instancia repositórios, injeta nos
+serviços e nos controllers. Trocar o storage = trocar uma classe.
 
-## Business Logic
+### Frontend
 
-- Barber earnings = value × 0.60
-- Productivity period filters: today / week / month / year
-- Smart tips generated dynamically based on data patterns
-- Financial projection: avg daily earnings × remaining days in month
+- React + Vite, TanStack Query
+- `lib/auth.ts`: login/signup/me chamando a API; persiste sessão em
+  `localStorage` (`barbermetrics.jwt` + `barbermetrics.user`)
+- `setAuthTokenGetter` injeta o JWT no cliente gerado em todo request
+- App renderiza `LoginPage` quando sem sessão, rotas protegidas quando logado
+- **Frontend não fala mais com banco direto** (Supabase e `localDatabase` removidos)
+
+## Variáveis de ambiente
+
+| Variável            | Obrigatória | Descrição                                       |
+|---------------------|-------------|-------------------------------------------------|
+| `DATABASE_URL`      | sim         | Postgres (já configurado no Replit)             |
+| `JWT_SECRET`        | em prod     | Chave HS256, mínimo 32 chars                    |
+| `JWT_TTL_SECONDS`   | não         | TTL do token (default 604800 = 7 dias)          |
+| `CORS_ORIGINS`      | não         | Origins permitidos, separados por vírgula        |
+| `BCRYPT_ROUNDS`     | não         | Custo do bcrypt (default 10)                    |
+| `PORT`              | sim         | Porta de bind do servidor                       |
+
+## Comandos
+
+```bash
+# Push do schema Drizzle no Postgres
+pnpm --filter @workspace/db push-force
+
+# Rodar tudo (workflows configurados):
+#   - artifacts/api-server: API Server
+#   - artifacts/barber-metrics: web
+
+# Regenerar cliente OpenAPI quando openapi.yaml mudar
+pnpm --filter @workspace/api-spec run codegen
+```
+
+## Decisões importantes
+
+1. **Auth local vs. Supabase**: trocou-se Supabase por bcrypt+JWT local para
+   não depender de credenciais não configuradas e manter o app pronto pra usar.
+   O contrato JWT permanece, então migrar de volta basta substituir `auth.service.ts`.
+2. **Envelope de resposta**: erros usam envelope `{success:false,error}`,
+   sucessos mantêm o schema flat do OpenAPI para preservar compat com o
+   cliente já gerado em `lib/api-client-react`.
+3. **Sem RLS no Postgres**: isolamento é por código nos repositórios. Como a
+   única forma de acessar dados é via API e os repositórios sempre exigem
+   `barbershopId`, o efeito prático é equivalente. RLS pode ser adicionado
+   mais tarde sem mudar a aplicação.

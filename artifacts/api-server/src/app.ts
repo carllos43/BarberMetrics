@@ -1,34 +1,56 @@
-import express, { type Express } from "express";
+import express from "express";
+import helmet from "helmet";
 import cors from "cors";
-import pinoHttp from "pino-http";
-import router from "./routes";
+import { pinoHttp } from "pino-http";
 import { logger } from "./lib/logger";
+import { env, corsOrigins } from "./config/env";
+import { globalRateLimit } from "./http/middlewares/rateLimit";
+import { errorHandler } from "./http/middlewares/errorHandler";
+import { notFound } from "./http/middlewares/notFound";
+import apiRouter from "./http/routes";
 
-const app: Express = express();
+export function createApp() {
+  const app = express();
 
-app.use(
-  pinoHttp({
-    logger,
-    serializers: {
-      req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
-      },
-      res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
-      },
-    },
-  }),
-);
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+  app.disable("x-powered-by");
+  app.set("trust proxy", 1);
 
-app.use("/api", router);
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // SPA frontend serves its own CSP via Replit
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
 
-export default app;
+  // CORS
+  if (corsOrigins.length === 0) {
+    // Dev mode: allow any origin (the Replit preview proxy already enforces auth at the edge).
+    app.use(cors({ origin: true, credentials: true }));
+  } else {
+    app.use(
+      cors({
+        origin: (origin, cb) => {
+          if (!origin) return cb(null, true);
+          if (corsOrigins.includes(origin)) return cb(null, true);
+          return cb(new Error(`Origin not allowed: ${origin}`));
+        },
+        credentials: true,
+      }),
+    );
+  }
+
+  app.use(express.json({ limit: "256kb" }));
+  app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === "/api/healthz" } }));
+
+  app.use(globalRateLimit);
+
+  // Mount everything under /api so the path-routed preview proxy can reach it.
+  app.use("/api", apiRouter);
+
+  app.use(notFound);
+  app.use(errorHandler);
+
+  return app;
+}
+
+export { env };

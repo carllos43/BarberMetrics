@@ -1,12 +1,12 @@
 import { pgTable, serial, text, integer, numeric, date, timestamp, uuid, index } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod/v4";
 import { usersTable } from "./users";
+import { barbershopsTable } from "./barbershops";
 
 export const appointmentsTable = pgTable(
   "appointments",
   {
     id: serial("id").primaryKey(),
+    barbershopId: uuid("barbershop_id").notNull().references(() => barbershopsTable.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
     date: date("date").notNull(),
     startTime: text("start_time").notNull(),
@@ -18,10 +18,9 @@ export const appointmentsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    userDateIdx: index("appointments_user_date_idx").on(t.userId, t.date),
+    bsDateIdx: index("appointments_bs_date_idx").on(t.barbershopId, t.date),
+    bsUserIdx: index("appointments_bs_user_idx").on(t.barbershopId, t.userId),
   }),
 );
 
-export const insertAppointmentSchema = createInsertSchema(appointmentsTable).omit({ id: true, createdAt: true });
-export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type Appointment = typeof appointmentsTable.$inferSelect;

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase";
+import { login, signup } from "@/lib/auth";
 
 type Mode = "signin" | "signup";
 
@@ -13,29 +13,23 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [barbershopName, setBarbershopName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setInfo(null);
     setLoading(true);
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        await login({ email, password });
       } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName || email.split("@")[0] } },
+        await signup({
+          email, password,
+          fullName: fullName || email.split("@")[0],
+          barbershopName: barbershopName || undefined,
         });
-        if (error) throw error;
-        if (!data.session) {
-          setInfo("Conta criada. Verifique seu e-mail para confirmar e depois faça login.");
-        }
       }
     } catch (err: any) {
       setError(err?.message ?? "Erro ao autenticar");
@@ -61,42 +55,43 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Seu nome"
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Seu nome</Label>
+                  <Input
+                    id="name" type="text" value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Seu nome"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="barbershop">Nome da barbearia (opcional)</Label>
+                  <Input
+                    id="barbershop" type="text" value={barbershopName}
+                    onChange={(e) => setBarbershopName(e.target.value)}
+                    placeholder="Ex: Barbearia do João"
+                  />
+                </div>
+              </>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
               <Input
-                id="email"
-                type="email"
-                required
-                value={email}
+                id="email" type="email" required value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="voce@exemplo.com"
+                placeholder="voce@exemplo.com" autoComplete="email"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
               <Input
-                id="password"
-                type="password"
-                required
-                minLength={6}
-                value={password}
+                id="password" type="password" required minLength={6} value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••"
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            {info && <p className="text-sm text-muted-foreground">{info}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Aguarde..." : mode === "signin" ? "Entrar" : "Criar conta"}
             </Button>
@@ -104,11 +99,7 @@ export default function LoginPage() {
           <button
             type="button"
             className="w-full mt-4 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => {
-              setMode(mode === "signin" ? "signup" : "signin");
-              setError(null);
-              setInfo(null);
-            }}
+            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
           >
             {mode === "signin" ? "Não tem conta? Criar uma" : "Já tem conta? Entrar"}
           </button>

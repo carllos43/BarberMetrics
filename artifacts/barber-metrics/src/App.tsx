@@ -11,8 +11,9 @@ import FinancesPage from "@/pages/finances";
 import ReportsPage from "@/pages/reports";
 import LoginPage from "@/pages/login";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import type { Session } from "@supabase/supabase-js";
+import {
+  fetchMe, getSession, onAuthChange, type AuthSession,
+} from "@/lib/auth";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +32,7 @@ function AppRoutes() {
 }
 
 function App() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(getSession());
   const [loadingSession, setLoadingSession] = useState(true);
 
   useEffect(() => {
@@ -39,19 +40,18 @@ function App() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    fetchMe().then((s) => {
+      setSession(s);
       setLoadingSession(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const off = onAuthChange((s) => {
       setSession(s);
-      // Reset query cache so user-scoped data is refetched on login/logout
       queryClient.clear();
     });
-    return () => sub.subscription.unsubscribe();
+    return () => { off(); };
   }, []);
 
-  if (loadingSession) {
+  if (loadingSession && !session) {
     return (
       <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <div className="text-muted-foreground text-sm">Carregando...</div>

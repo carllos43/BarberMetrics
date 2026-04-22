@@ -2,12 +2,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
-import { supabase } from "@/lib/supabase";
+import { getToken } from "@/lib/auth";
 
-// Provide bearer JWT to every API request automatically.
-setAuthTokenGetter(async () => {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
-});
+// Provide bearer JWT to every generated-client API request automatically.
+setAuthTokenGetter(() => getToken());
 
 createRoot(document.getElementById("root")!).render(<App />);
