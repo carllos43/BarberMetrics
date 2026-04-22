@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte } from "drizzle-orm";
-import { db, appointmentsTable, settingsTable } from "@workspace/db";
+import { db, appointmentsTable, usersTable } from "@workspace/db";
 import {
   ListAppointmentsQueryParams,
   CreateAppointmentBody,
@@ -20,9 +20,9 @@ function toBRDateStr(date: Date): string {
   }).format(date);
 }
 
-async function getCommission(): Promise<number> {
-  const [row] = await db.select().from(settingsTable).where(eq(settingsTable.key, "commission_percent")).limit(1);
-  return row ? parseFloat(row.value) : 60;
+async function getCommission(userId: string): Promise<number> {
+  const [row] = await db.select({ pct: usersTable.commissionPercent }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  return row ? row.pct : 60;
 }
 
 function getPeriodDates(period: string): { start: string; end: string } {
@@ -49,6 +49,7 @@ function getPeriodDates(period: string): { start: string; end: string } {
 }
 
 router.get("/appointments", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const query = ListAppointmentsQueryParams.safeParse(req.query);
   const period = query.success ? (query.data.period ?? "today") : "today";
   const { start, end } = getPeriodDates(period);
@@ -56,7 +57,11 @@ router.get("/appointments", async (req, res): Promise<void> => {
   const appointments = await db
     .select()
     .from(appointmentsTable)
-    .where(and(gte(appointmentsTable.date, start), lte(appointmentsTable.date, end)))
+    .where(and(
+      eq(appointmentsTable.userId, userId),
+      gte(appointmentsTable.date, start),
+      lte(appointmentsTable.date, end),
+    ))
     .orderBy(appointmentsTable.createdAt);
 
   const mapped = appointments.map((a) => ({
@@ -69,6 +74,7 @@ router.get("/appointments", async (req, res): Promise<void> => {
 });
 
 router.post("/appointments", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const parsed = CreateAppointmentBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -81,13 +87,14 @@ router.post("/appointments", async (req, res): Promise<void> => {
     timeZone: BR_TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
   }).format(now);
 
-  const commission = await getCommission();
+  const commission = await getCommission(userId);
   const value = parsed.data.value;
   const barberEarnings = value * (commission / 100);
 
   const [appointment] = await db
     .insert(appointmentsTable)
     .values({
+      userId,
       date: parsed.data.date ?? today,
       startTime: parsed.data.startTime ?? timeStr,
       endTime: parsed.data.endTime ?? timeStr,
@@ -106,6 +113,7 @@ router.post("/appointments", async (req, res): Promise<void> => {
 });
 
 router.patch("/appointments/:id", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
@@ -113,18 +121,18 @@ router.patch("/appointments/:id", async (req, res): Promise<void> => {
   const parsed = UpdateAppointmentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [existing] = await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, id));
+  const [existing] = await db.select().from(appointmentsTable)
+    .where(and(eq(appointmentsTable.id, id), eq(appointmentsTable.userId, userId)));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
 
   const startTime = parsed.data.startTime ?? existing.startTime;
   const endTime = parsed.data.endTime ?? existing.endTime;
 
-  // Recalculate duration from start/end times
   const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
   const durationMinutes = Math.max(1, toMin(endTime) - toMin(startTime));
 
   const value = parsed.data.value ?? parseFloat(existing.value);
-  const commission = await getCommission();
+  const commission = await getCommission(userId);
   const barberEarnings = value * (commission / 100);
 
   const [updated] = await db
@@ -138,7 +146,7 @@ router.patch("/appointments/:id", async (req, res): Promise<void> => {
       value: value.toString(),
       barberEarnings: barberEarnings.toString(),
     })
-    .where(eq(appointmentsTable.id, id))
+    .where(and(eq(appointmentsTable.id, id), eq(appointmentsTable.userId, userId)))
     .returning();
 
   res.json(GetAppointmentResponse.parse({
@@ -149,6 +157,7 @@ router.patch("/appointments/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/appointments/:id", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = GetAppointmentParams.safeParse({ id: parseInt(raw, 10) });
   if (!params.success) {
@@ -159,7 +168,7 @@ router.get("/appointments/:id", async (req, res): Promise<void> => {
   const [appointment] = await db
     .select()
     .from(appointmentsTable)
-    .where(eq(appointmentsTable.id, params.data.id));
+    .where(and(eq(appointmentsTable.id, params.data.id), eq(appointmentsTable.userId, userId)));
 
   if (!appointment) {
     res.status(404).json({ error: "Appointment not found" });
@@ -174,6 +183,7 @@ router.get("/appointments/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/appointments/:id", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = DeleteAppointmentParams.safeParse({ id: parseInt(raw, 10) });
   if (!params.success) {
@@ -181,7 +191,8 @@ router.delete("/appointments/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  await db.delete(appointmentsTable).where(eq(appointmentsTable.id, params.data.id));
+  await db.delete(appointmentsTable)
+    .where(and(eq(appointmentsTable.id, params.data.id), eq(appointmentsTable.userId, userId)));
   res.sendStatus(204);
 });
 

@@ -29,6 +29,7 @@ import type {
   GetMonthlyAnalysisParams,
   GetProductivityStatsParams,
   GetProductivityTipsParams,
+  GetStatementParams,
   HealthStatus,
   ListAppointmentsParams,
   MonthlyAnalysis,
@@ -1497,6 +1498,100 @@ export function useGetProductivityTips<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetProductivityTipsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get appointment statement for a date range
+ */
+export const getGetStatementUrl = (params: GetStatementParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/reports/statement?${stringifiedParams}`
+    : `/api/reports/statement`;
+};
+
+export const getStatement = async (
+  params: GetStatementParams,
+  options?: RequestInit,
+): Promise<Appointment[]> => {
+  return customFetch<Appointment[]>(getGetStatementUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStatementQueryKey = (params?: GetStatementParams) => {
+  return [`/api/reports/statement`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetStatementQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStatement>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetStatementParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStatement>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStatementQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getStatement>>> = ({
+    signal,
+  }) => getStatement(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStatement>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStatementQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStatement>>
+>;
+export type GetStatementQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get appointment statement for a date range
+ */
+
+export function useGetStatement<
+  TData = Awaited<ReturnType<typeof getStatement>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetStatementParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStatement>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStatementQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

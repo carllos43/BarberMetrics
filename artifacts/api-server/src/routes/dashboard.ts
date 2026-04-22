@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte } from "drizzle-orm";
-import { db, appointmentsTable, timerSessionsTable, settingsTable, billsTable } from "@workspace/db";
+import { db, appointmentsTable, timerSessionsTable, settingsTable, billsTable, usersTable } from "@workspace/db";
 import {
   GetDashboardSummaryResponse,
   GetDailyGoalResponse,
@@ -17,33 +17,34 @@ import {
 
 const router: IRouter = Router();
 
-async function getSetting(key: string, defaultValue: string): Promise<string> {
+async function getSetting(userId: string, key: string, defaultValue: string): Promise<string> {
   const [setting] = await db
     .select()
     .from(settingsTable)
-    .where(eq(settingsTable.key, key))
+    .where(and(eq(settingsTable.userId, userId), eq(settingsTable.key, key)))
     .limit(1);
   return setting ? setting.value : defaultValue;
 }
 
-async function upsertSetting(key: string, value: string): Promise<void> {
+async function upsertSetting(userId: string, key: string, value: string): Promise<void> {
   const existing = await db
     .select()
     .from(settingsTable)
-    .where(eq(settingsTable.key, key))
+    .where(and(eq(settingsTable.userId, userId), eq(settingsTable.key, key)))
     .limit(1);
 
   if (existing.length > 0) {
     await db
       .update(settingsTable)
       .set({ value })
-      .where(eq(settingsTable.key, key));
+      .where(and(eq(settingsTable.userId, userId), eq(settingsTable.key, key)));
   } else {
-    await db.insert(settingsTable).values({ key, value });
+    await db.insert(settingsTable).values({ userId, key, value });
   }
 }
 
 router.get("/dashboard/summary", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const now = new Date();
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Sao_Paulo",
@@ -51,10 +52,12 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   }).format(now);
 
   const [todayAppointments, timerResult, bills, dailyGoal] = await Promise.all([
-    db.select().from(appointmentsTable).where(and(gte(appointmentsTable.date, today), lte(appointmentsTable.date, today))),
-    db.select().from(timerSessionsTable).where(eq(timerSessionsTable.isActive, true)).limit(1),
-    db.select().from(billsTable),
-    getSetting("daily_goal", "200").then(parseFloat),
+    db.select().from(appointmentsTable)
+      .where(and(eq(appointmentsTable.userId, userId), gte(appointmentsTable.date, today), lte(appointmentsTable.date, today))),
+    db.select().from(timerSessionsTable)
+      .where(and(eq(timerSessionsTable.userId, userId), eq(timerSessionsTable.isActive, true))).limit(1),
+    db.select().from(billsTable).where(eq(billsTable.userId, userId)),
+    getSetting(userId, "daily_goal", "200").then(parseFloat),
   ]);
 
   const [activeTimer] = timerResult;
@@ -66,7 +69,6 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const avgDurationMinutes = totalClients > 0 ? totalServiceMinutes / totalClients : 0;
   const avgTicket = totalClients > 0 ? grossRevenue / totalClients : 0;
 
-  // Real working time: first startTime → last endTime
   let totalWorkingMinutes = 0;
   if (todayAppointments.length > 0) {
     const timeToMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
@@ -80,13 +82,11 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const barberEarningsPerHour = earningsPerHour;
   const productivityPercent = totalWorkingMinutes > 0 ? (totalServiceMinutes / totalWorkingMinutes) * 100 : 0;
 
-  // Chair goal: capacity-based (how much could be earned if working time was fully used)
   const clientsPossible = avgDurationMinutes > 0 && totalWorkingMinutes > 0
     ? totalWorkingMinutes / avgDurationMinutes
     : 0;
   const chairGoal = clientsPossible * avgTicket;
 
-  // Minimum daily goal from registered monthly bills
   const totalBillsValue = bills.reduce((sum, b) => sum + parseFloat(b.value), 0);
   const minimumDailyGoal = Math.ceil(totalBillsValue / 22);
 
@@ -113,36 +113,40 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
 });
 
 router.get("/settings/daily-goal", async (req, res): Promise<void> => {
-  const goal = parseFloat(await getSetting("daily_goal", "200"));
+  const userId = req.userId!;
+  const goal = parseFloat(await getSetting(userId, "daily_goal", "200"));
   res.json(GetDailyGoalResponse.parse({ goal }));
 });
 
 router.put("/settings/daily-goal", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const parsed = UpdateDailyGoalBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  await upsertSetting("daily_goal", parsed.data.goal.toString());
+  await upsertSetting(userId, "daily_goal", parsed.data.goal.toString());
   res.json(UpdateDailyGoalResponse.parse({ goal: parsed.data.goal }));
 });
 
 router.get("/settings/work-hours", async (req, res): Promise<void> => {
-  const hoursPerDay = parseFloat(await getSetting("hours_per_day", "8"));
-  const daysPerWeek = parseInt(await getSetting("days_per_week", "6"), 10);
+  const userId = req.userId!;
+  const hoursPerDay = parseFloat(await getSetting(userId, "hours_per_day", "8"));
+  const daysPerWeek = parseInt(await getSetting(userId, "days_per_week", "6"), 10);
   res.json(GetWorkHoursResponse.parse({ hoursPerDay, daysPerWeek }));
 });
 
 router.put("/settings/work-hours", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const parsed = UpdateWorkHoursBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  await upsertSetting("hours_per_day", parsed.data.hoursPerDay.toString());
-  await upsertSetting("days_per_week", parsed.data.daysPerWeek.toString());
+  await upsertSetting(userId, "hours_per_day", parsed.data.hoursPerDay.toString());
+  await upsertSetting(userId, "days_per_week", parsed.data.daysPerWeek.toString());
 
   res.json(UpdateWorkHoursResponse.parse(parsed.data));
 });
@@ -156,6 +160,7 @@ function currentMonthBR(): string {
 const DAY_NAMES = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
 router.get("/dashboard/monthly-analysis", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const month = (typeof req.query.month === "string" && /^\d{4}-\d{2}$/.test(req.query.month))
     ? req.query.month
     : currentMonthBR();
@@ -168,9 +173,12 @@ router.get("/dashboard/monthly-analysis", async (req, res): Promise<void> => {
   const rows = await db
     .select()
     .from(appointmentsTable)
-    .where(and(gte(appointmentsTable.date, monthStart), lte(appointmentsTable.date, monthEnd)));
+    .where(and(
+      eq(appointmentsTable.userId, userId),
+      gte(appointmentsTable.date, monthStart),
+      lte(appointmentsTable.date, monthEnd),
+    ));
 
-  // --- top days ---
   const dayMap = new Map<string, { earnings: number; count: number }>();
   for (const r of rows) {
     const e = parseFloat(r.barberEarnings as string) || 0;
@@ -185,21 +193,18 @@ router.get("/dashboard/monthly-analysis", async (req, res): Promise<void> => {
   const totalEarnings = topDays.reduce((s, d) => s + d.earnings, 0);
   const dailyAverage = workedDays > 0 ? totalEarnings / workedDays : 0;
 
-  // forecast: project daily avg to remaining working days in month
   const todayBR = new Intl.DateTimeFormat("en-CA", { timeZone: BR_TZ }).format(new Date());
   const isCurrentMonth = todayBR.startsWith(month);
   let monthlyForecast = totalEarnings;
   if (isCurrentMonth) {
     const todayDay = parseInt(todayBR.split("-")[2], 10);
     const remainingDays = lastDay - todayDay;
-    // estimate remaining worked days proportionally
     const workDayRatio = workedDays / Math.max(1, todayDay);
     const projectedRemainingDays = remainingDays * workDayRatio;
     monthlyForecast = totalEarnings + dailyAverage * projectedRemainingDays;
   }
   monthlyForecast = Math.round(monthlyForecast * 100) / 100;
 
-  // --- busiest hours ---
   const hourMap = new Map<number, number>();
   for (const r of rows) {
     const hour = parseInt((r.startTime || "0").split(":")[0], 10);
@@ -209,16 +214,14 @@ router.get("/dashboard/monthly-analysis", async (req, res): Promise<void> => {
     .map(([hour, count]) => ({ hour, count }))
     .sort((a, b) => b.count - a.count);
 
-  // --- weekday stats ---
   const wdMap = new Map<number, { earnings: number; count: number }>();
   for (const r of rows) {
     const [y, m, d] = r.date.split("-").map(Number);
-    const wd = new Date(y, m - 1, d).getDay(); // 0=Sun
+    const wd = new Date(y, m - 1, d).getDay();
     const e = parseFloat(r.barberEarnings as string) || 0;
     const existing = wdMap.get(wd) || { earnings: 0, count: 0 };
     wdMap.set(wd, { earnings: existing.earnings + e, count: existing.count + 1 });
   }
-  // count distinct days per weekday
   const wdDaysMap = new Map<number, Set<string>>();
   for (const r of rows) {
     const [y, m, d] = r.date.split("-").map(Number);
@@ -238,7 +241,6 @@ router.get("/dashboard/monthly-analysis", async (req, res): Promise<void> => {
     })
     .sort((a, b) => b.avgEarnings - a.avgEarnings);
 
-  // --- service ranking ---
   const svcMap = new Map<string, { count: number; earnings: number }>();
   for (const r of rows) {
     const svc = r.service || "Outro";
@@ -264,14 +266,19 @@ router.get("/dashboard/monthly-analysis", async (req, res): Promise<void> => {
 });
 
 router.get("/settings/commission", async (req, res): Promise<void> => {
-  const commissionPercent = parseFloat(await getSetting("commission_percent", "60"));
-  res.json(GetCommissionResponse.parse({ commissionPercent }));
+  const userId = req.userId!;
+  const [row] = await db.select({ pct: usersTable.commissionPercent })
+    .from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  res.json(GetCommissionResponse.parse({ commissionPercent: row?.pct ?? 60 }));
 });
 
 router.put("/settings/commission", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const parsed = UpdateCommissionBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  await upsertSetting("commission_percent", parsed.data.commissionPercent.toString());
+  await db.update(usersTable)
+    .set({ commissionPercent: Math.round(parsed.data.commissionPercent) })
+    .where(eq(usersTable.id, userId));
   res.json(UpdateCommissionResponse.parse({ commissionPercent: parsed.data.commissionPercent }));
 });
 

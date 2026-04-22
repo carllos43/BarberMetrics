@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, billsTable } from "@workspace/db";
 import {
   CreateBillBody,
@@ -13,7 +13,10 @@ import {
 const router: IRouter = Router();
 
 router.get("/bills", async (req, res): Promise<void> => {
-  const bills = await db.select().from(billsTable).orderBy(billsTable.dueDay);
+  const userId = req.userId!;
+  const bills = await db.select().from(billsTable)
+    .where(eq(billsTable.userId, userId))
+    .orderBy(billsTable.dueDay);
   const mapped = bills.map((b) => ({
     ...b,
     value: parseFloat(b.value),
@@ -22,6 +25,7 @@ router.get("/bills", async (req, res): Promise<void> => {
 });
 
 router.post("/bills", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const parsed = CreateBillBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -31,6 +35,7 @@ router.post("/bills", async (req, res): Promise<void> => {
   const [bill] = await db
     .insert(billsTable)
     .values({
+      userId,
       name: parsed.data.name,
       value: parsed.data.value.toString(),
       dueDay: parsed.data.dueDay,
@@ -45,6 +50,7 @@ router.post("/bills", async (req, res): Promise<void> => {
 });
 
 router.patch("/bills/:id", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = UpdateBillParams.safeParse({ id: parseInt(raw, 10) });
   if (!params.success) {
@@ -66,7 +72,7 @@ router.patch("/bills/:id", async (req, res): Promise<void> => {
       dueDay: parsed.data.dueDay,
       category: parsed.data.category,
     })
-    .where(eq(billsTable.id, params.data.id))
+    .where(and(eq(billsTable.id, params.data.id), eq(billsTable.userId, userId)))
     .returning();
 
   if (!bill) {
@@ -81,6 +87,7 @@ router.patch("/bills/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/bills/:id", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const params = DeleteBillParams.safeParse({ id: parseInt(raw, 10) });
   if (!params.success) {
@@ -88,7 +95,8 @@ router.delete("/bills/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  await db.delete(billsTable).where(eq(billsTable.id, params.data.id));
+  await db.delete(billsTable)
+    .where(and(eq(billsTable.id, params.data.id), eq(billsTable.userId, userId)));
   res.sendStatus(204);
 });
 

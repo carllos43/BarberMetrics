@@ -327,6 +327,27 @@ export const GetProductivityTipsResponse = zod.array(
 );
 
 /**
+ * @summary Get appointment statement for a date range
+ */
+export const GetStatementQueryParams = zod.object({
+  start: zod.date(),
+  end: zod.date(),
+});
+
+export const GetStatementResponseItem = zod.object({
+  id: zod.number(),
+  date: zod.coerce.date(),
+  startTime: zod.string(),
+  endTime: zod.string(),
+  durationMinutes: zod.number(),
+  service: zod.string(),
+  value: zod.number(),
+  barberEarnings: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+export const GetStatementResponse = zod.array(GetStatementResponseItem);
+
+/**
  * @summary Get financial summary with bills, earnings and projections
  */
 export const GetFinancialSummaryResponse = zod.object({

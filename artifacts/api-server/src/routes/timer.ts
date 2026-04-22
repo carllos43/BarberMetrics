@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, timerSessionsTable, appointmentsTable, settingsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { db, timerSessionsTable, appointmentsTable, usersTable } from "@workspace/db";
 import {
   StartTimerResponse,
   GetActiveTimerResponse,
@@ -12,9 +12,9 @@ const router: IRouter = Router();
 
 const BR_TZ = "America/Sao_Paulo";
 
-async function getCommission(): Promise<number> {
-  const [row] = await db.select().from(settingsTable).where(eq(settingsTable.key, "commission_percent")).limit(1);
-  return row ? parseFloat(row.value) : 60;
+async function getCommission(userId: string): Promise<number> {
+  const [row] = await db.select({ pct: usersTable.commissionPercent }).from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  return row ? row.pct : 60;
 }
 
 function toBRDateStr(date: Date): string {
@@ -37,32 +37,32 @@ function toBRTimeStr(date: Date): string {
 }
 
 router.post("/timer/start", async (req, res): Promise<void> => {
-  // Deactivate any existing active timer
+  const userId = req.userId!;
+  // Deactivate any existing active timer for this user
   await db
     .update(timerSessionsTable)
     .set({ isActive: false, endedAt: new Date() })
-    .where(eq(timerSessionsTable.isActive, true));
+    .where(and(eq(timerSessionsTable.userId, userId), eq(timerSessionsTable.isActive, true)));
 
   const [session] = await db
     .insert(timerSessionsTable)
-    .values({ isActive: true, startedAt: new Date() })
+    .values({ userId, isActive: true, startedAt: new Date() })
     .returning();
-
-  const elapsedSeconds = 0;
 
   res.json(StartTimerResponse.parse({
     id: session.id.toString(),
     startedAt: session.startedAt.toISOString(),
-    elapsedSeconds,
+    elapsedSeconds: 0,
     isActive: true,
   }));
 });
 
 router.get("/timer/active", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const [session] = await db
     .select()
     .from(timerSessionsTable)
-    .where(eq(timerSessionsTable.isActive, true))
+    .where(and(eq(timerSessionsTable.userId, userId), eq(timerSessionsTable.isActive, true)))
     .limit(1);
 
   if (!session) {
@@ -86,6 +86,7 @@ router.get("/timer/active", async (req, res): Promise<void> => {
 });
 
 router.post("/timer/finish", async (req, res): Promise<void> => {
+  const userId = req.userId!;
   const parsed = FinishTimerBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -95,7 +96,7 @@ router.post("/timer/finish", async (req, res): Promise<void> => {
   const [session] = await db
     .select()
     .from(timerSessionsTable)
-    .where(eq(timerSessionsTable.isActive, true))
+    .where(and(eq(timerSessionsTable.userId, userId), eq(timerSessionsTable.isActive, true)))
     .limit(1);
 
   const now = new Date();
@@ -103,7 +104,6 @@ router.post("/timer/finish", async (req, res): Promise<void> => {
   const durationMs = now.getTime() - startedAt.getTime();
   const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
 
-  // Deactivate timer
   if (session) {
     await db
       .update(timerSessionsTable)
@@ -111,7 +111,6 @@ router.post("/timer/finish", async (req, res): Promise<void> => {
       .where(eq(timerSessionsTable.id, session.id));
   }
 
-  // Store date and times in Brazil timezone so history displays correctly
   const today = toBRDateStr(now);
   const startTimeStr = toBRTimeStr(startedAt);
   const endTimeStr = toBRTimeStr(now);
@@ -121,12 +120,13 @@ router.post("/timer/finish", async (req, res): Promise<void> => {
     : parsed.data.service;
 
   const value = parsed.data.value;
-  const commission = await getCommission();
+  const commission = await getCommission(userId);
   const barberEarnings = value * (commission / 100);
 
   const [appointment] = await db
     .insert(appointmentsTable)
     .values({
+      userId,
       date: today,
       startTime: startTimeStr,
       endTime: endTimeStr,

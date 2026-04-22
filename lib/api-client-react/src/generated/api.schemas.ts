@@ -251,3 +251,8 @@ export const GetProductivityTipsPeriod = {
   month: "month",
   year: "year",
 } as const;
+
+export type GetStatementParams = {
+  start: string;
+  end: string;
+};

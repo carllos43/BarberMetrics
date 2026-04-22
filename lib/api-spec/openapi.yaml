@@ -24,6 +24,10 @@ tags:
     description: Productivity analytics operations
   - name: finances
     description: Financial analytics operations
+  - name: reports
+    description: Statement / report operations
+security:
+  - bearerAuth: []
 paths:
   /healthz:
     get:
@@ -31,6 +35,7 @@ paths:
       tags: [health]
       summary: Health check
       description: Returns server health status
+      security: []
       responses:
         "200":
           description: Healthy
@@ -322,6 +327,34 @@ paths:
                 items:
                   $ref: "#/components/schemas/ProductivityTip"
 
+  /reports/statement:
+    get:
+      operationId: getStatement
+      tags: [reports]
+      summary: Get appointment statement for a date range
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Statement rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Appointment"
+
   /finances/summary:
     get:
       operationId: getFinancialSummary
@@ -426,6 +459,11 @@ paths:
                 $ref: "#/components/schemas/CommissionSetting"
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     HealthStatus:
       type: object

@@ -21,6 +21,7 @@ export * from "./getProductivityStatsParams";
 export * from "./getProductivityStatsPeriod";
 export * from "./getProductivityTipsParams";
 export * from "./getProductivityTipsPeriod";
+export * from "./getStatementParams";
 export * from "./healthStatus";
 export * from "./hourStat";
 export * from "./listAppointmentsParams";

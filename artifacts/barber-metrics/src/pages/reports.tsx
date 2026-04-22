@@ -1,0 +1,84 @@
+import { useMemo } from "react";
+import { format } from "date-fns";
+import { Printer, Clock } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { useGetStatement } from "@workspace/api-client-react";
+import { formatCurrency } from "@/lib/format";
+import { MobileLayout } from "@/components/layout/MobileLayout";
+
+export default function ReportsPage() {
+  const startMonth = format(new Date(), "yyyy-MM-01");
+  const today = format(new Date(), "yyyy-MM-dd");
+
+  const { data: statement } = useGetStatement({ start: startMonth, end: today });
+
+  const totals = useMemo(() => {
+    if (!statement) return { gross: 0, net: 0 };
+    return statement.reduce(
+      (acc, curr) => ({
+        gross: acc.gross + Number(curr.value),
+        net: acc.net + Number(curr.barberEarnings),
+      }),
+      { gross: 0, net: 0 },
+    );
+  }, [statement]);
+
+  return (
+    <MobileLayout title="Relatórios">
+      <div className="p-4 pb-24 space-y-6">
+        <header className="flex justify-end items-center print:hidden">
+          <Button onClick={() => window.print()} variant="outline" size="sm">
+            <Printer className="h-4 w-4 mr-2" />
+            Imprimir
+          </Button>
+        </header>
+        <div className="grid grid-cols-2 gap-3 print:grid-cols-4">
+          <Card className="bg-primary/10 border-primary/20">
+            <CardContent className="p-4">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Bruto</p>
+              <p className="text-xl font-black">{formatCurrency(totals.gross)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-green-500/10 border-green-500/20">
+            <CardContent className="p-4">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground">Líquido</p>
+              <p className="text-xl font-black text-green-500">{formatCurrency(totals.net)}</p>
+            </CardContent>
+          </Card>
+        </div>
+        <Card className="bg-card print:bg-white border-none shadow-none">
+          <CardHeader className="px-2">
+            <CardTitle className="text-sm flex gap-2">
+              <Clock className="h-4 w-4" />
+              Detalhamento
+            </CardTitle>
+          </CardHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-[10px]">DATA</TableHead>
+                <TableHead className="text-[10px]">SERVIÇO</TableHead>
+                <TableHead className="text-[10px] text-right">VALOR</TableHead>
+                <TableHead className="text-[10px] text-right font-bold">GANHO</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {statement?.map((row) => (
+                <TableRow key={row.id} className="text-xs">
+                  <TableCell>{format(new Date(String(row.date) + "T00:00:00"), "dd/MM")}</TableCell>
+                  <TableCell className="font-medium">{row.service}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(Number(row.value))}</TableCell>
+                  <TableCell className="text-right font-bold text-green-500">
+                    {formatCurrency(Number(row.barberEarnings))}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
+    </MobileLayout>
+  );
+}
