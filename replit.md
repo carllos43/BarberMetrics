@@ -12,7 +12,8 @@ pnpm workspace monorepo using TypeScript. Contains the **BarberMetrics** SaaS �
 - **TypeScript version**: 5.9
 - **Frontend**: React + Vite (artifacts/barber-metrics) — served at `/`
 - **API framework**: Express 5 (artifacts/api-server) — served at `/api`
-- **Database**: PostgreSQL + Drizzle ORM
+- **Database**: Supabase PostgreSQL + Drizzle ORM (via transaction pooler)
+- **Auth**: Supabase Auth (email/senha). Backend valida JWT via `supabase.auth.getUser(token)`; middleware faz upsert em `users` e injeta `req.userId` em todas as rotas protegidas (exceto `/healthz`).
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
@@ -26,12 +27,24 @@ pnpm workspace monorepo using TypeScript. Contains the **BarberMetrics** SaaS �
 - **Productivity**: Analytics with service breakdown chart, idle time analysis, smart tips
 - **Finances**: Monthly bill management, financial projection, surplus/shortfall tracking
 
-## Database Tables
+## Database Tables (multi-tenant — todas escopadas por `userId`)
 
-- `appointments` — haircut records with time, service, value, barber earnings
-- `bills` — monthly fixed expenses
-- `timer_sessions` — active timer tracking
-- `settings` — key-value config (daily_goal, hours_per_day, days_per_week)
+- `users` — uuid PK = Supabase auth user id; `email`, `fullName`, `role`, `commissionPercent` (default 60)
+- `appointments` — registros de corte com tempo, serviço, valor, comissão do barbeiro (FK userId)
+- `bills` — contas fixas mensais (FK userId)
+- `timer_sessions` — controle de timer ativo (FK userId)
+- `settings` — config chave-valor por usuário (unique composto em userId+key)
+
+## Relatórios
+
+- `GET /reports/statement?from=YYYY-MM-DD&to=YYYY-MM-DD` — extrato financeiro do período (atendimentos, contas, totais)
+- Página `/relatorios` na BottomNav (6º ícone)
+
+## Secrets necessários
+
+- `SUPABASE_URL` — URL do projeto (https://PROJREF.supabase.co)
+- `SUPABASE_ANON_KEY` — anon key pública
+- `SUPABASE_DATABASE_URL` — connection string do **Transaction pooler** (porta 6543, host `aws-X-REGION.pooler.supabase.com`). Conexão direta `db.PROJREF.supabase.co` NÃO funciona no Replit (IPv6-only).
 
 ## Key Commands
 
