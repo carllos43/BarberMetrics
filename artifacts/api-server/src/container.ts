@@ -28,6 +28,8 @@ import { ProductivityService } from "./modules/productivity/productivity.service
 import { ProductivityController } from "./modules/productivity/productivity.controller";
 import { ReportsService } from "./modules/reports/reports.service";
 import { ReportsController } from "./modules/reports/reports.controller";
+import { PersonalFinancesController } from "./modules/personalFinances/personalFinances.controller";
+import { PersonalBillsController } from "./modules/personalBills/personalBills.controller";
 
 // ---- Repositories
 export const usersRepo = new DrizzleUsersRepo();
@@ -54,6 +56,10 @@ export const reportsService = new ReportsService(appointmentsRepo);
 export const personalFinancesService = new PersonalFinancesService(
   weeklyCyclesRepo, withdrawalsRepo, personalFinancesRepo, personalBillsRepo,
 );
+export const personalFinancesController = new PersonalFinancesController(
+  personalFinancesService, personalFinancesRepo, weeklyCyclesRepo,
+);
+export const personalBillsController = new PersonalBillsController(personalBillsRepo);
 
 // ---- Controllers
 export const authController = new AuthController(authService);

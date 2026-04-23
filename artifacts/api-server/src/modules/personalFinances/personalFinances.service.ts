@@ -4,6 +4,14 @@ import type { PersonalFinancesRepo, PersonalFinancesDTO } from "./personalFinanc
 import type { PersonalBillsRepo, PersonalBillDTO } from "../personalBills/personalBills.repository";
 import { NotFoundError, ValidationError } from "../../domain/errors";
 
+export type AlertKind = "vale_excedente" | "conta_vence_24h" | "ajuste_domingo" | "ciclo_pendente_fechamento";
+export interface PersonalAlert {
+  kind: AlertKind;
+  severity: "info" | "warn" | "danger";
+  message: string;
+  meta?: Record<string, unknown>;
+}
+
 /** Quanto sobrou no ciclo atual = produzido - vales. Pode ficar negativo (excedente). */
 export interface SaldoSemanal {
   cycleId: number;
@@ -50,6 +58,7 @@ export class PersonalFinancesService {
     semana: SaldoSemanal;
     pessoal: PersonalFinancesDTO;
     contas: PersonalBillDTO[];
+    alerts: PersonalAlert[];
   }> {
     const cycle = await this.cycles.getOrCreateCurrent(bsId, userId);
     const recomputed = await this.cycles.recompute(bsId, cycle.id) ?? cycle;
@@ -72,7 +81,51 @@ export class PersonalFinancesService {
       this.finances.getOrCreate(bsId, userId),
       this.bills.list(bsId, userId),
     ]);
-    return { semana, pessoal, contas };
+
+    const alerts: PersonalAlert[] = [];
+    if (saldoDisponivel < 0) {
+      alerts.push({
+        kind: "vale_excedente",
+        severity: "danger",
+        message: `Você está R$ ${Math.abs(saldoDisponivel).toFixed(2)} acima do produzido nesta semana.`,
+        meta: { excedente: -saldoDisponivel },
+      });
+    }
+
+    const dom = today.getUTCDay();
+    const todayDay = today.getUTCDate();
+    for (const c of contas.filter((x) => x.ativa)) {
+      const diasParaVencer = ((c.diaVencimento - todayDay) + 31) % 31;
+      if (diasParaVencer <= 1) {
+        alerts.push({
+          kind: "conta_vence_24h",
+          severity: "danger",
+          message: `Conta "${c.nome}" vence ${diasParaVencer === 0 ? "hoje" : "amanhã"} (R$ ${c.valor.toFixed(2)}).`,
+          meta: { id: c.id },
+        });
+      }
+    }
+
+    if (dom === 0 && cycle.status === "open") {
+      alerts.push({
+        kind: "ajuste_domingo",
+        severity: "warn",
+        message: "Domingo: confirme o saldo real da semana antes do fechamento.",
+        meta: { cycleId: cycle.id },
+      });
+    }
+
+    const sat = new Date(recomputed.endDate + "T23:59:59Z");
+    if (today > sat && cycle.status === "open") {
+      alerts.push({
+        kind: "ciclo_pendente_fechamento",
+        severity: "warn",
+        message: "A semana terminou — feche o ciclo pra transferir o saldo pra aba pessoal.",
+        meta: { cycleId: cycle.id },
+      });
+    }
+
+    return { semana, pessoal, contas, alerts };
   }
 
   async createWithdrawal(bsId: string, userId: string, input: CreateWithdrawalInput) {

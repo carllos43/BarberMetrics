@@ -10,7 +10,15 @@ import {
   financesController,
   productivityController,
   reportsController,
+  personalFinancesController,
+  personalBillsController,
 } from "../../container";
+import {
+  WithdrawalBody, WithdrawalPatch, PersonalFinancesPatch, CloseWeekBody,
+} from "../../modules/personalFinances/personalFinances.controller";
+import {
+  PersonalBillBody, PersonalBillPatch,
+} from "../../modules/personalBills/personalBills.controller";
 import { authMiddleware, authOnlyMiddleware } from "../middlewares/auth";
 import { tenantMiddleware } from "../middlewares/tenant";
 import { authRateLimit } from "../middlewares/rateLimit";
@@ -108,6 +116,27 @@ protectedRouter.get("/settings/commission", settingsController.getCommission);
 protectedRouter.put("/settings/commission",
   validate({ body: z.object({ commissionPercent: z.number().min(0).max(100) }) }),
   settingsController.updateCommission);
+
+// Personal Finances (módulo financeiro pessoal — Fase 2)
+protectedRouter.get("/personal-finances/overview", personalFinancesController.overview);
+protectedRouter.get("/personal-finances/cycles", personalFinancesController.cycles_list);
+protectedRouter.put("/personal-finances/settings",
+  validate({ body: PersonalFinancesPatch }), personalFinancesController.updateSettings);
+protectedRouter.post("/personal-finances/withdrawals",
+  validate({ body: WithdrawalBody }), personalFinancesController.createWithdrawal);
+protectedRouter.put("/personal-finances/withdrawals/:id",
+  validate({ body: WithdrawalPatch }), personalFinancesController.updateWithdrawal);
+protectedRouter.delete("/personal-finances/withdrawals/:id", personalFinancesController.deleteWithdrawal);
+protectedRouter.post("/personal-finances/close-week",
+  validate({ body: CloseWeekBody }), personalFinancesController.closeWeek);
+
+// Personal Bills (contas pessoais fixas — semáforo)
+protectedRouter.get("/personal-bills", personalBillsController.list);
+protectedRouter.post("/personal-bills",
+  validate({ body: PersonalBillBody }), personalBillsController.create);
+protectedRouter.put("/personal-bills/:id",
+  validate({ body: PersonalBillPatch }), personalBillsController.update);
+protectedRouter.delete("/personal-bills/:id", personalBillsController.remove);
 
 router.use(protectedRouter);
 
