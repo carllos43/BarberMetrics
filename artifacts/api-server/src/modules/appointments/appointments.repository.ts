@@ -11,6 +11,9 @@ export interface AppointmentDTO {
   service: string;
   value: number;
   barberEarnings: number;
+  valorBruto: number | null;
+  comissaoPercentual: number | null;
+  valorLiquido: number | null;
   createdAt: string;
 }
 
@@ -24,6 +27,9 @@ const fromRow = (r: typeof appointmentsTable.$inferSelect): AppointmentDTO => ({
   service: r.service,
   value: parseFloat(r.value),
   barberEarnings: parseFloat(r.barberEarnings),
+  valorBruto: r.valorBruto != null ? parseFloat(r.valorBruto) : null,
+  comissaoPercentual: r.comissaoPercentual ?? null,
+  valorLiquido: r.valorLiquido != null ? parseFloat(r.valorLiquido) : null,
   createdAt: r.createdAt.toISOString(),
 });
 
@@ -60,6 +66,9 @@ export class DrizzleAppointmentsRepo implements AppointmentsRepo {
       service: v.service,
       value: v.value.toString(),
       barberEarnings: v.barberEarnings.toString(),
+      valorBruto: v.valorBruto != null ? v.valorBruto.toString() : null,
+      comissaoPercentual: v.comissaoPercentual ?? null,
+      valorLiquido: v.valorLiquido != null ? v.valorLiquido.toString() : null,
     }).returning();
     return fromRow(r);
   }
@@ -72,6 +81,9 @@ export class DrizzleAppointmentsRepo implements AppointmentsRepo {
     if (patch.service !== undefined) set.service = patch.service;
     if (patch.value !== undefined) set.value = patch.value.toString();
     if (patch.barberEarnings !== undefined) set.barberEarnings = patch.barberEarnings.toString();
+    if (patch.valorBruto !== undefined) set.valorBruto = patch.valorBruto != null ? patch.valorBruto.toString() : null;
+    if (patch.comissaoPercentual !== undefined) set.comissaoPercentual = patch.comissaoPercentual;
+    if (patch.valorLiquido !== undefined) set.valorLiquido = patch.valorLiquido != null ? patch.valorLiquido.toString() : null;
 
     const [r] = await db.update(appointmentsTable).set(set)
       .where(and(eq(appointmentsTable.barbershopId, bsId), eq(appointmentsTable.id, id)))

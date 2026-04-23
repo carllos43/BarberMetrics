@@ -43,6 +43,9 @@ export class AppointmentsService {
       service: input.service,
       value,
       barberEarnings,
+      valorBruto: value,
+      comissaoPercentual: commission,
+      valorLiquido: barberEarnings,
     });
   }
 
@@ -59,12 +62,16 @@ export class AppointmentsService {
     const durationMinutes = Math.max(1, timeStrToMinutes(endTime) - timeStrToMinutes(startTime));
     const value = patch.value ?? existing.value;
     const commission = await this.users.getCommissionPercent(ctx.userId);
+    const barberEarnings = +(value * (commission / 100)).toFixed(2);
     const updated = await this.repo.update(ctx.barbershopId, id, {
       date: patch.date ?? existing.date,
       startTime, endTime, durationMinutes,
       service: patch.service ?? existing.service,
       value,
-      barberEarnings: +(value * (commission / 100)).toFixed(2),
+      barberEarnings,
+      valorBruto: value,
+      comissaoPercentual: commission,
+      valorLiquido: barberEarnings,
     });
     if (!updated) throw new NotFoundError("Atendimento não encontrado");
     return updated;

@@ -67,6 +67,9 @@ export class TimerService {
       service,
       value,
       barberEarnings,
+      valorBruto: value,
+      comissaoPercentual: commission,
+      valorLiquido: barberEarnings,
     });
   }
 }
