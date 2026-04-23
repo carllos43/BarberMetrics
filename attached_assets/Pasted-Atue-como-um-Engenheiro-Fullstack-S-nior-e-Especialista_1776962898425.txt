@@ -1,0 +1,59 @@
+Atue como um Engenheiro Fullstack Sênior e Especialista em UI/UX. Vamos implementar o módulo financeiro completo seguindo a arquitetura atual do projeto (Drizzle ORM, Supabase Pooler 6543, Multi-tenancy por barbershop_id).
+
+⚠️ ORIENTAÇÃO INICIAL:
+Leia o schema.ts, Repositories e Services. NÃO mude o que já funciona. Apenas AMPLIE o sistema. Use npx drizzle-kit push para aplicar as mudanças direto no Supabase.
+
+1. ARQUITETURA DE DADOS (Drizzle & Supabase)
+A. Tabela appointments (Atualizar):
+
+Adicione valor_bruto, comissao_percentual e valor_liquido.
+
+Regra: valor_liquido é a única base de cálculo.
+
+B. Novas Tabelas (Criar):
+
+weekly_cycles: Controla o ciclo Segunda -> Sábado (Saldo produzido, total de vales).
+
+withdrawals (Vales/Mobills): Registra retiradas com categoria_destino (Gasto Livre, Conta Fixa, Reserva). Deve permitir EDITAR e EXCLUIR.
+
+personal_finances: Saldo total no banco, saldo guardado (caixinha), e limites por categoria.
+
+personal_bills: Cadastro de contas fixas com data de vencimento.
+
+2. REGRAS DE NEGÓCIO (O CÉREBRO)
+Ciclo Semanal: Criar automaticamente se não existir. Sábado à noite, a RPC fechar_semana transfere o saldo para a Aba Pessoal, desconta a % da caixinha e gera o novo ciclo.
+
+Modo Vale Inteligente: Se valor > saldo_disponivel, marcar como is_excedente e exibir alerta forte em vermelho, mas permitir a operação.
+
+Limite Diário Inteligente: Calcular saldo_disponivel / dias_restantes_ate_sabado.
+
+Autoaprendizado: Se o gasto for < R$15 e houver atividade recente (serviço em 24h), sugerir lançamento automático.
+
+Ajuste Semanal: No domingo, perguntar o saldo real. Se erro > 20%, exigir ajuste manual assistido.
+
+3. INTERFACE iOS PREMIUM (A ÚNICA ABA "PESSOAL")
+Crie apenas a aba "Financeiro Pessoal" com esta organização:
+
+Visual: Estilo iOS (Cards rounded-3xl, sombras suaves, gradientes).
+
+Timeline Vertical: Lista organizada por data (Hoje, Ontem...) mostrando Serviços (+) e Vales (-).
+
+Semáforo de Contas: Cards de contas fixas que ficam vermelhos se o vencimento for < 24h.
+
+Envelopes de Gasto: Barras de progresso para "Quanto ainda posso gastar com Lazer/Comida este mês".
+
+Calendário/Histórico: Navegação por meses passados para ver faturamento e extrato histórico.
+
+4. RELATÓRIOS E EXPORTAÇÃO
+Implemente um botão "Exportar Extrato Profissional".
+
+Use jspdf para gerar um PDF nível contábil (detalhando produção líquida, vales e despesas) para uso na Receita Federal. NUNCA use window.print().
+
+5. EXECUÇÃO EM FASES
+Fase 1: Atualize o schema.ts, rode o push para o Supabase e crie os Services/Repositories necessários.
+
+Fase 2: Implemente a lógica de cálculo de saldo e fechamento no Backend.
+
+Fase 3: Construa a interface visual da Aba Pessoal com a Timeline e os Modais (Drawers) de lançamento.
+
+Pode começar agora pela Fase 1

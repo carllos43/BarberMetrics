@@ -60,6 +60,25 @@ Endpoints públicos: `POST /api/auth/onboard`, `GET /api/auth/me`,
 - Envelope padronizado de erros: `{ success: false, error: string }`
 - Respostas de sucesso seguem o schema OpenAPI (compatibilidade com cliente gerado)
 
+### Módulo Financeiro Pessoal (Fase 1)
+
+Tabelas adicionadas no Supabase:
+
+- `appointments` ganhou `valor_bruto`, `comissao_percentual`, `valor_liquido`
+  (legado `value` + `barber_earnings` continua, sem quebrar nada existente)
+- `weekly_cycles` — ciclo Segunda→Sábado por (barbershop, user) com
+  `saldo_produzido`, `total_vales`, `status` ('open'|'closed')
+- `withdrawals` — vales/Mobills com `categoria_destino`
+  ('gasto_livre'|'conta_fixa'|'reserva') e `is_excedente` quando vale > saldo
+- `personal_finances` — linha única por (barbershop, user) com `saldo_banco`,
+  `saldo_guardado`, `percentual_caixinha` e limites por categoria
+- `personal_bills` — contas fixas pessoais com `dia_vencimento` (semáforo)
+
+Camada de domínio: `PersonalFinancesService` (em
+`modules/personalFinances/personalFinances.service.ts`) orquestra
+ciclo+vales+saldo. Métodos chave: `getOverview`, `createWithdrawal` (valida
+excedente), `closeWeek` (transfere saldo→banco e desconta caixinha).
+
 ### Camadas (exemplo `appointments`)
 
 ```

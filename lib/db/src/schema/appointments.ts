@@ -15,6 +15,10 @@ export const appointmentsTable = pgTable(
     service: text("service").notNull(),
     value: numeric("value", { precision: 10, scale: 2 }).notNull(),
     barberEarnings: numeric("barber_earnings", { precision: 10, scale: 2 }).notNull(),
+    /** Novos campos do módulo financeiro — base de cálculo é `valorLiquido`. */
+    valorBruto: numeric("valor_bruto", { precision: 10, scale: 2 }),
+    comissaoPercentual: integer("comissao_percentual"),
+    valorLiquido: numeric("valor_liquido", { precision: 10, scale: 2 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

@@ -4,6 +4,11 @@ import { DrizzleAppointmentsRepo } from "./modules/appointments/appointments.rep
 import { DrizzleBillsRepo } from "./modules/bills/bills.repository";
 import { DrizzleTimerRepo } from "./modules/timer/timer.repository";
 import { DrizzleSettingsRepo } from "./modules/settings/settings.repository";
+import { DrizzleWeeklyCyclesRepo } from "./modules/weeklyCycles/weeklyCycles.repository";
+import { DrizzleWithdrawalsRepo } from "./modules/withdrawals/withdrawals.repository";
+import { DrizzlePersonalFinancesRepo } from "./modules/personalFinances/personalFinances.repository";
+import { DrizzlePersonalBillsRepo } from "./modules/personalBills/personalBills.repository";
+import { PersonalFinancesService } from "./modules/personalFinances/personalFinances.service";
 
 import { AuthService } from "./modules/auth/auth.service";
 import { AuthController } from "./modules/auth/auth.controller";
@@ -31,6 +36,10 @@ export const appointmentsRepo = new DrizzleAppointmentsRepo();
 export const billsRepo = new DrizzleBillsRepo();
 export const timerRepo = new DrizzleTimerRepo();
 export const settingsRepo = new DrizzleSettingsRepo();
+export const weeklyCyclesRepo = new DrizzleWeeklyCyclesRepo();
+export const withdrawalsRepo = new DrizzleWithdrawalsRepo();
+export const personalFinancesRepo = new DrizzlePersonalFinancesRepo();
+export const personalBillsRepo = new DrizzlePersonalBillsRepo();
 
 // ---- Services
 export const settingsService = new SettingsService(settingsRepo, usersRepo);
@@ -42,6 +51,9 @@ export const dashboardService = new DashboardService(appointmentsRepo, billsRepo
 export const financesService = new FinancesService(appointmentsRepo, billsRepo);
 export const productivityService = new ProductivityService(appointmentsRepo, billsRepo, settingsService);
 export const reportsService = new ReportsService(appointmentsRepo);
+export const personalFinancesService = new PersonalFinancesService(
+  weeklyCyclesRepo, withdrawalsRepo, personalFinancesRepo, personalBillsRepo,
+);
 
 // ---- Controllers
 export const authController = new AuthController(authService);
