@@ -125,11 +125,39 @@ export async function login(input: { email: string; password: string }): Promise
   if (!data.session) throw new Error("Não foi possível autenticar");
   const token = data.session.access_token;
   cachedToken = token;
-  const profile = await callApi<{ user: AuthUser; barbershop: Barbershop }>(
-    "/auth/me", { method: "GET" }, token);
+  const profile = await ensureProfile(token, data.user);
   persistProfile(profile);
   emit();
   return { token, ...profile };
+}
+
+/**
+ * Try /auth/me; if the backend says the profile/barbershop doesn't exist yet
+ * (typical when signup required email confirmation, so onboard never ran),
+ * call /auth/onboard inline using metadata from Supabase.
+ */
+async function ensureProfile(
+  token: string,
+  authUser: { email?: string | null; user_metadata?: Record<string, unknown> } | null,
+): Promise<{ user: AuthUser; barbershop: Barbershop }> {
+  try {
+    return await callApi<{ user: AuthUser; barbershop: Barbershop }>(
+      "/auth/me", { method: "GET" }, token);
+  } catch (e) {
+    const msg = (e as Error).message ?? "";
+    const needsOnboard = /onboarding|sem barbearia|Perfil não encontrado/i.test(msg);
+    if (!needsOnboard) throw e;
+    const meta = (authUser?.user_metadata ?? {}) as Record<string, unknown>;
+    const fullName =
+      (typeof meta.full_name === "string" && meta.full_name) ||
+      (typeof meta.name === "string" && meta.name) ||
+      (authUser?.email ? authUser.email.split("@")[0] : "Profissional");
+    return await callApi<{ user: AuthUser; barbershop: Barbershop }>(
+      "/auth/onboard", {
+        method: "POST",
+        body: JSON.stringify({ fullName }),
+      }, token);
+  }
 }
 
 export async function fetchMe(): Promise<AuthSession | null> {
