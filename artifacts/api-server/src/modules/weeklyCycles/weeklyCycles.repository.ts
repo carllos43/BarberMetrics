@@ -1,8 +1,9 @@
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
 import { db, weeklyCyclesTable, appointmentsTable, withdrawalsTable } from "@workspace/db";
 
 export interface WeeklyCycleDTO {
   id: number;
+  barbershopId: string;
   userId: string;
   startDate: string;
   endDate: string;
@@ -15,6 +16,7 @@ export interface WeeklyCycleDTO {
 
 const fromRow = (r: typeof weeklyCyclesTable.$inferSelect): WeeklyCycleDTO => ({
   id: r.id,
+  barbershopId: r.barbershopId,
   userId: r.userId,
   startDate: r.startDate,
   endDate: r.endDate,
@@ -42,6 +44,7 @@ export interface WeeklyCyclesRepo {
   getOrCreateCurrent(bsId: string, userId: string, ref?: Date): Promise<WeeklyCycleDTO>;
   findById(bsId: string, id: number): Promise<WeeklyCycleDTO | null>;
   list(bsId: string, userId: string, limit?: number): Promise<WeeklyCycleDTO[]>;
+  listOverdueOpen(today: string): Promise<WeeklyCycleDTO[]>;
   recompute(bsId: string, id: number): Promise<WeeklyCycleDTO | null>;
   close(bsId: string, id: number): Promise<WeeklyCycleDTO | null>;
 }
@@ -70,6 +73,14 @@ export class DrizzleWeeklyCyclesRepo implements WeeklyCyclesRepo {
     const rows = await db.select().from(weeklyCyclesTable)
       .where(and(eq(weeklyCyclesTable.barbershopId, bsId), eq(weeklyCyclesTable.userId, userId)))
       .orderBy(desc(weeklyCyclesTable.startDate)).limit(limit);
+    return rows.map(fromRow);
+  }
+  async listOverdueOpen(today: string) {
+    const rows = await db.select().from(weeklyCyclesTable)
+      .where(and(
+        eq(weeklyCyclesTable.status, "open"),
+        lt(weeklyCyclesTable.endDate, today),
+      ));
     return rows.map(fromRow);
   }
   async recompute(bsId: string, id: number) {

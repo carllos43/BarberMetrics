@@ -1,6 +1,7 @@
 import { createApp } from "./app";
 import { logger } from "./lib/logger";
 import { env } from "./config/env";
+import { startScheduler } from "./lib/scheduler";
 
 const app = createApp();
 
@@ -10,4 +11,5 @@ app.listen(env.PORT, (err) => {
     process.exit(1);
   }
   logger.info({ port: env.PORT, env: env.NODE_ENV }, "API server listening");
+  startScheduler();
 });

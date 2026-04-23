@@ -167,6 +167,25 @@ export class PersonalFinancesService {
     if (w.weeklyCycleId) await this.cycles.recompute(bsId, w.weeklyCycleId);
   }
 
+  /** Job: fecha automaticamente todos os ciclos abertos com endDate < hoje. */
+  async autoCloseOverdueCycles(today: Date = new Date()): Promise<{
+    processed: number;
+    closed: Array<{ cycleId: number; userId: string; barbershopId: string; saldo: number }>;
+  }> {
+    const todayStr = today.toISOString().slice(0, 10);
+    const overdue = await this.cycles.listOverdueOpen(todayStr);
+    const closed: Array<{ cycleId: number; userId: string; barbershopId: string; saldo: number }> = [];
+    for (const c of overdue) {
+      try {
+        const r = await this.closeWeek(c.barbershopId, c.userId, c.id);
+        closed.push({ cycleId: c.id, userId: c.userId, barbershopId: c.barbershopId, saldo: r.saldoTransferido + r.caixinha });
+      } catch {
+        // ignora ciclos com erro individual e segue
+      }
+    }
+    return { processed: overdue.length, closed };
+  }
+
   /** "RPC" fechar_semana: transfere saldo do ciclo pra saldoBanco/saldoGuardado. */
   async closeWeek(bsId: string, userId: string, cycleId: number): Promise<CloseWeekResult> {
     const cycle = await this.cycles.findById(bsId, cycleId);
