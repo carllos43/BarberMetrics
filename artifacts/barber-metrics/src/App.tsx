@@ -8,6 +8,7 @@ import TimerPage from "@/pages/timer";
 import AppointmentsPage from "@/pages/appointments";
 import ProductivityPage from "@/pages/productivity";
 import FinancesPage from "@/pages/finances";
+import PersonalFinancesPage from "@/pages/personalFinances";
 import ReportsPage from "@/pages/reports";
 import LoginPage from "@/pages/login";
 import { useEffect, useState } from "react";
@@ -25,6 +26,7 @@ function AppRoutes() {
       <Route path="/atendimentos" component={AppointmentsPage} />
       <Route path="/produtividade" component={ProductivityPage} />
       <Route path="/financas" component={FinancesPage} />
+      <Route path="/pessoal" component={PersonalFinancesPage} />
       <Route path="/relatorios" component={ReportsPage} />
       <Route component={NotFound} />
     </Switch>
