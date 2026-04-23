@@ -21,23 +21,34 @@ lib/
 
 Toda escrita/leitura de dados é escopada por `barbershop_id`. O cadastro
 (`/api/auth/signup`) cria atomicamente: usuário + barbearia pessoal +
-membership(role=owner). O JWT carrega `sub` (userId), `email`, `bsId` e `role`.
-O `tenantMiddleware` garante que toda rota protegida tenha `barbershopId`
-resolvido antes de chegar ao serviço; os repositórios filtram por
-`barbershopId` em **todas** as consultas, garantindo isolamento por código.
+membership(role=owner). Os repositórios filtram por `barbershopId` em
+**todas** as consultas, garantindo isolamento por código. O `barbershopId`
+é resolvido no middleware a partir do `userId` extraído do JWT do Supabase.
 
-### Autenticação
+### Autenticação (Supabase Auth)
 
-Auth self-contained com **bcrypt + JWT (HS256)** assinada pelo backend.
-Decisão deliberada: o ambiente não tem Supabase configurada, e auth local
-elimina dependência externa, mantém o JWT como contrato e funciona pronto.
+Auth delegada ao **Supabase Auth**. O frontend usa `@supabase/supabase-js`
+para signup/login (email+senha) e recebe um JWT do Supabase. O backend
+verifica esse JWT chamando `supabase.auth.getUser(token)` (com cache em
+memória) e extrai o `userId`.
 
-- `JWT_SECRET` (env): obrigatória em produção; em dev gera-se uma efêmera.
-- `JWT_TTL_SECONDS`: padrão 7 dias.
-- `BCRYPT_ROUNDS`: padrão 10.
+Fluxo:
+1. Frontend faz `supabase.auth.signUp()` → recebe access_token.
+2. Frontend chama `POST /api/auth/onboard` com `{ fullName, barbershopName }`
+   no primeiro acesso → backend cria usuário+barbearia+membership atomicamente
+   usando o `auth.users.id` do Supabase como PK.
+3. Em sessões subsequentes o frontend chama `GET /api/auth/me` para hidratar
+   o contexto.
 
-Endpoints públicos: `POST /api/auth/signup`, `POST /api/auth/login`,
-`GET /api/healthz`. Tudo o mais exige `Authorization: Bearer <jwt>`.
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`: usados pelo backend (verifyToken) e
+  pelo frontend (injetados via `vite.config.ts` como `VITE_SUPABASE_*`).
+- `SUPABASE_DB_URL`: connection string do pooler do Supabase
+  (`aws-*.pooler.supabase.com:6543`). O `lib/db` parseia a URL e passa
+  `host/port/user/password` explícitos pro `pg.Pool` para evitar conflito
+  com `PGUSER/PGPASSWORD` que o Replit injeta.
+
+Endpoints públicos: `POST /api/auth/onboard`, `GET /api/auth/me`,
+`GET /api/healthz`. Tudo o mais exige `Authorization: Bearer <supabase-jwt>`.
 
 ### Segurança HTTP
 

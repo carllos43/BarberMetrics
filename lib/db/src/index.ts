@@ -10,10 +10,15 @@ if (!connectionString) {
   throw new Error("SUPABASE_DB_URL (or DATABASE_URL) must be set");
 }
 
-const isSupabase = /supabase\.(co|com)/.test(connectionString);
+const url = new URL(connectionString);
+const isSupabase = /supabase\.(co|com)/.test(url.hostname);
 
 const pool = new Pool({
-  connectionString,
+  host: url.hostname,
+  port: Number(url.port || 5432),
+  user: decodeURIComponent(url.username),
+  password: decodeURIComponent(url.password),
+  database: url.pathname.replace(/^\//, "") || "postgres",
   ssl: isSupabase ? { rejectUnauthorized: false } : undefined,
   max: 10,
 });

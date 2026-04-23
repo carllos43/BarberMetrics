@@ -4,7 +4,6 @@ import { db, usersTable } from "@workspace/db";
 export interface UserRow {
   id: string;
   email: string;
-  passwordHash: string;
   fullName: string;
   role: string;
   commissionPercent: number;
@@ -13,7 +12,7 @@ export interface UserRow {
 export interface UsersRepo {
   findByEmail(email: string): Promise<UserRow | null>;
   findById(id: string): Promise<UserRow | null>;
-  create(input: { email: string; passwordHash: string; fullName: string }): Promise<UserRow>;
+  upsert(input: { id: string; email: string; fullName: string }): Promise<UserRow>;
   getCommissionPercent(userId: string): Promise<number>;
   updateCommissionPercent(userId: string, percent: number): Promise<void>;
 }
@@ -27,11 +26,15 @@ export class DrizzleUsersRepo implements UsersRepo {
     const [r] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
     return r ?? null;
   }
-  async create(input: { email: string; passwordHash: string; fullName: string }) {
+  /**
+   * Inserts (or returns the existing) profile row matching a Supabase auth user.
+   * The `id` MUST equal `auth.users.id`.
+   */
+  async upsert(input: { id: string; email: string; fullName: string }) {
+    const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, input.id)).limit(1);
+    if (existing) return existing;
     const [r] = await db.insert(usersTable).values({
-      email: input.email,
-      passwordHash: input.passwordHash,
-      fullName: input.fullName,
+      id: input.id, email: input.email, fullName: input.fullName,
     }).returning();
     return r;
   }

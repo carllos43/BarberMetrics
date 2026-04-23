@@ -44,7 +44,7 @@ function App() {
     fetchMe().then((s) => {
       setSession(s);
       setLoadingSession(false);
-    });
+    }).catch(() => setLoadingSession(false));
     const off = onAuthChange((s) => {
       setSession(s);
       queryClient.clear();

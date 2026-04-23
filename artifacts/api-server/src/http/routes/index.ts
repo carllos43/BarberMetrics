@@ -11,21 +11,22 @@ import {
   productivityController,
   reportsController,
 } from "../../container";
-import { authMiddleware } from "../middlewares/auth";
+import { authMiddleware, authOnlyMiddleware } from "../middlewares/auth";
 import { tenantMiddleware } from "../middlewares/tenant";
 import { authRateLimit } from "../middlewares/rateLimit";
 import { validate } from "../middlewares/validate";
-import { SignupBody, LoginBody } from "../../modules/auth/auth.controller";
+import { OnboardBody } from "../../modules/auth/auth.controller";
 
 const router: IRouter = Router();
 
 // ----- Health (public)
 router.get("/healthz", (_req, res) => res.json({ status: "ok" }));
 
-// ----- Auth (public, rate-limited)
+// ----- Auth — login/signup happen on Supabase directly via the browser SDK.
+// The backend only handles the post-signup onboarding (creating the
+// barbershop + profile + membership) and returning the session payload.
 const authRouter: IRouter = Router();
-authRouter.post("/signup", authRateLimit, validate({ body: SignupBody }), authController.signup);
-authRouter.post("/login", authRateLimit, validate({ body: LoginBody }), authController.login);
+authRouter.post("/onboard", authRateLimit, authOnlyMiddleware, validate({ body: OnboardBody }), authController.onboard);
 authRouter.get("/me", authMiddleware, authController.me);
 router.use("/auth", authRouter);
 
