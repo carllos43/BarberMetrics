@@ -5,12 +5,10 @@
   "framework": null,
   "functions": {
     "api/[[...slug]].ts": {
-      "runtime": "@vercel/node@5",
       "memory": 1024,
       "maxDuration": 30
     },
     "api/cron/weekly-close.ts": {
-      "runtime": "@vercel/node@5",
       "memory": 1024,
       "maxDuration": 60
     }
