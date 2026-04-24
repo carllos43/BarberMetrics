@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Clock, Home, ListOrdered, Wallet, PiggyBank, FileText } from "lucide-react";
+import { Clock, Home, ListOrdered, Wallet, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -7,7 +7,6 @@ const navItems = [
   { path: "/timer", icon: Clock, label: "Timer" },
   { path: "/atendimentos", icon: ListOrdered, label: "Histórico" },
   { path: "/financas", icon: Wallet, label: "Negócio" },
-  { path: "/pessoal", icon: PiggyBank, label: "Pessoal" },
   { path: "/relatorios", icon: FileText, label: "Relatórios" },
 ];
 
