@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "echo 'no build step (api/* is compiled by @vercel/node)'",
+  "framework": null,
+  "functions": {
+    "api/[[...slug]].ts": {
+      "runtime": "@vercel/node@5",
+      "memory": 1024,
+      "maxDuration": 30
+    },
+    "api/cron/weekly-close.ts": {
+      "runtime": "@vercel/node@5",
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/weekly-close",
+      "schedule": "0 1 * * 0"
+    }
+  ]
+}

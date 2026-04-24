@@ -3,13 +3,18 @@ import { logger } from "./lib/logger";
 import { env } from "./config/env";
 import { startScheduler } from "./lib/scheduler";
 
-const app = createApp();
+// Em ambientes serverless (Vercel) NÃO subimos servidor HTTP nem agendador:
+// o handler em `api/[[...slug]].ts` cuida das requests e o cron da Vercel
+// dispara `/api/cron/weekly-close`. Aqui é só para dev/local/Replit.
+if (!process.env.VERCEL) {
+  const app = createApp();
 
-app.listen(env.PORT, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
-  logger.info({ port: env.PORT, env: env.NODE_ENV }, "API server listening");
-  startScheduler();
-});
+  app.listen(env.PORT, (err) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
+    logger.info({ port: env.PORT, env: env.NODE_ENV }, "API server listening");
+    startScheduler();
+  });
+}

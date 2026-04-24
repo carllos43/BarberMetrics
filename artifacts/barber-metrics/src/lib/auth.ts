@@ -20,7 +20,11 @@ export interface AuthSession {
   barbershop: Barbershop;
 }
 
-const API_BASE = `${import.meta.env.BASE_URL}api`.replace(/\/+$/, "");
+const API_BASE = (() => {
+  const override = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (override) return `${override.replace(/\/+$/, "")}/api`;
+  return `${import.meta.env.BASE_URL}api`.replace(/\/+$/, "");
+})();
 
 const listeners = new Set<(s: AuthSession | null) => void>();
 
