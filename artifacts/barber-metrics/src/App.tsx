@@ -2,14 +2,18 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
-import Dashboard from "@/pages/dashboard";
-import TimerPage from "@/pages/timer";
-import AppointmentsPage from "@/pages/appointments";
-import ProductivityPage from "@/pages/productivity";
-import FinancesPage from "@/pages/finances";
-import ReportsPage from "@/pages/reports";
-import LoginPage from "@/pages/login";
+import {
+  LazyDashboard,
+  LazyTimer,
+  LazyAppointments,
+  LazyProductivity,
+  LazyFinances,
+  LazyReports,
+  LazyLogin,
+  LazyNotFound,
+  PageSuspense,
+  prefetchAllRoutesWhenIdle,
+} from "@/lib/lazyPages";
 import { useEffect, useState } from "react";
 import { fetchMe, getSession, onAuthChange, type AuthSession } from "@/lib/auth";
 import { SettingsProvider } from "@/lib/settings";
@@ -38,15 +42,17 @@ const queryClient = new QueryClient({
 
 function AppRoutes() {
   return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/timer" component={TimerPage} />
-      <Route path="/atendimentos" component={AppointmentsPage} />
-      <Route path="/produtividade" component={ProductivityPage} />
-      <Route path="/financas" component={FinancesPage} />
-      <Route path="/relatorios" component={ReportsPage} />
-      <Route component={NotFound} />
-    </Switch>
+    <PageSuspense>
+      <Switch>
+        <Route path="/" component={LazyDashboard} />
+        <Route path="/timer" component={LazyTimer} />
+        <Route path="/atendimentos" component={LazyAppointments} />
+        <Route path="/produtividade" component={LazyProductivity} />
+        <Route path="/financas" component={LazyFinances} />
+        <Route path="/relatorios" component={LazyReports} />
+        <Route component={LazyNotFound} />
+      </Switch>
+    </PageSuspense>
   );
 }
 
@@ -57,6 +63,9 @@ function App() {
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
+    // Depois que a tela inicial pintar, baixa em background o JS das outras
+    // rotas pra que clicar na navegação seja instantâneo.
+    prefetchAllRoutesWhenIdle();
   }, []);
 
   useEffect(() => {
