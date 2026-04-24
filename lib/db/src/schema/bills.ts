@@ -16,6 +16,7 @@ export const billsTable = pgTable(
   },
   (t) => ({
     bsIdx: index("bills_bs_idx").on(t.barbershopId),
+    bsUserCreatedIdx: index("bills_bs_user_created_idx").on(t.barbershopId, t.userId, t.createdAt),
   }),
 );
 

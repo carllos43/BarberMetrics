@@ -34,6 +34,7 @@ export const transactionsTable = pgTable(
     categoryIdx: index("transactions_category_idx").on(t.categoryId),
     occurredIdx: index("transactions_occurred_idx").on(t.barbershopId, t.userId, t.occurredAt),
     billIdx: index("transactions_bill_idx").on(t.billId),
+    bsUserCreatedIdx: index("transactions_bs_user_created_idx").on(t.barbershopId, t.userId, t.createdAt),
   }),
 );
 

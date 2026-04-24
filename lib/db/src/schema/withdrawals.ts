@@ -26,6 +26,7 @@ export const withdrawalsTable = pgTable(
   (t) => ({
     bsUserIdx: index("withdrawals_bs_user_idx").on(t.barbershopId, t.userId),
     cycleIdx: index("withdrawals_cycle_idx").on(t.weeklyCycleId),
+    bsUserCreatedIdx: index("withdrawals_bs_user_created_idx").on(t.barbershopId, t.userId, t.createdAt),
   }),
 );
 

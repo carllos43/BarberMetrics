@@ -25,6 +25,7 @@ export const weeklyCyclesTable = pgTable(
   (t) => ({
     bsUserIdx: index("weekly_cycles_bs_user_idx").on(t.barbershopId, t.userId),
     bsRangeIdx: index("weekly_cycles_bs_range_idx").on(t.barbershopId, t.startDate),
+    bsUserCreatedIdx: index("weekly_cycles_bs_user_created_idx").on(t.barbershopId, t.userId, t.createdAt),
   }),
 );
 

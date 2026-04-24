@@ -24,6 +24,7 @@ export const appointmentsTable = pgTable(
   (t) => ({
     bsDateIdx: index("appointments_bs_date_idx").on(t.barbershopId, t.date),
     bsUserIdx: index("appointments_bs_user_idx").on(t.barbershopId, t.userId),
+    bsUserCreatedIdx: index("appointments_bs_user_created_idx").on(t.barbershopId, t.userId, t.createdAt),
   }),
 );
 

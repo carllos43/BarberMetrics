@@ -15,7 +15,26 @@ import { fetchMe, getSession, onAuthChange, type AuthSession } from "@/lib/auth"
 import { SettingsProvider } from "@/lib/settings";
 import { SettingsModal } from "@/components/SettingsModal";
 
-const queryClient = new QueryClient();
+// Defaults para "stale-while-revalidate":
+// - dados ficam "frescos" por 30s (não dispara nova request se você só navega)
+// - mas, ao montar/refazer foco, re-busca em background mostrando o cache antigo
+// - guarda em memória por 5 min antes de garbage collect
+// - 1 retry só pra não pendurar a UI em rede ruim
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      retry: 1,
+      placeholderData: (prev: unknown) => prev,
+    },
+    mutations: {
+      retry: 0,
+    },
+  },
+});
 
 function AppRoutes() {
   return (

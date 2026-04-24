@@ -1,6 +1,7 @@
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
+import compression from "compression";
 import { pinoHttp } from "pino-http";
 import { logger } from "./lib/logger";
 import { env, corsOrigins } from "./config/env";
@@ -19,6 +20,18 @@ export function createApp() {
     helmet({
       contentSecurityPolicy: false, // SPA frontend serves its own CSP via Replit
       crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
+
+  // Gzip/Brotli — chega antes do JSON parser para também comprimir respostas grandes.
+  // Comprime tudo > 1KB; respeita o header `Accept-Encoding` do cliente.
+  app.use(
+    compression({
+      threshold: 1024,
+      filter: (req, res) => {
+        if (req.headers["x-no-compression"]) return false;
+        return compression.filter(req, res);
+      },
     }),
   );
 
