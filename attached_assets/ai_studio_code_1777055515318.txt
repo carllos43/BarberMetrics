@@ -1,0 +1,4 @@
+SESSION_SECRET="JtdU+IxAodLRvm0iPnRxbuU7sL8QzixP4fHefRCpt/rh0lGGkWhsezqY8TruJfZ3UVkGrryy50D6rSfOXMh98g=="
+SUPABASE_URL="https://sxxssscassqlwxuelhic.supabase.co/"
+SUPABASE_ANON_KEY="sb_publishable_jjgmunpFIZpdNbkxpolsiQ_Dn9CRwBL"
+SUPABASE_DB_URL="postgresql://postgres.sxxssscassqlwxuelhic:BarberMetrics2026@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
