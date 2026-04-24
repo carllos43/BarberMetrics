@@ -98,6 +98,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-SUPABASE_URL = "https://sxxssscassqlwxuelhic.supabase.co"
-SUPABASE_ANON_KEY = "sb_publishable_jjgmunpFIZpdNbkxpolsiQ_Dn9CRwBL"
-SUPABASE_DB_URL = "postgresql://postgres.sxxssscassqlwxuelhic:BarberMetrics2026@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+SUPABASE_URL = "https://kheidwdyznpsbmnxzovl.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_lxYUn_bG5KzQbOMBkmr8eA_8Am7gnNH"
+SUPABASE_DB_URL = "postgresql://postgres.kheidwdyznpsbmnxzovl:BarberMetrics2026@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
