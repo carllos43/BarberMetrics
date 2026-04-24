@@ -1,0 +1,45 @@
+Atue como Engenheiro Fullstack Sênior e Especialista em UI/UX (Estilo Apple). Vamos implementar o módulo financeiro pessoal definitivo.
+
+⚠️ AVISO DE INTEGRIDADE: Leia o schema.ts. Use Drizzle ORM. NÃO altere o design atual, apenas dê funcionalidade aos elementos. Aplique via npx drizzle-kit push.
+
+1. ARQUITETURA DE DADOS (O RASTREIO):
+
+Tabela transactions: Deve salvar id, user_id, barbershop_id, type (entrada/gasto/pagamento), amount, category_id, account_id (se for pagamento), description, created_at (timestamp completo), e deleted (default false).
+
+Tabela personal_categories: Permite que o usuário crie/exclua seus cards (ex: Lazer, Comida). Cards fixos: 'No Banco' e 'Contas'.
+
+2. NAVEGAÇÃO POR CARDS (EXTRATO BANCÁRIO):
+
+Torne cada card clicável. Ao clicar, abra um Modal/Drawer estilo iOS com o Extrato Detalhado daquela categoria.
+
+O extrato deve listar: Data, Hora, Descrição e Valor.
+
+Permita Editar ou Excluir qualquer transação de dentro do extrato. O saldo do card deve ser uma soma em tempo real das transações (deleted = false).
+
+3. SEPARAÇÃO DE FLUXOS (VALE vs. PAGAR):
+
+Botão 'Vale': Abre modal para registrar gastos diários (Lazer, Comida, Outros) ou Reserva (Banco).
+
+Botão 'Pagar': Fluxo exclusivo para Contas Fixas (Pensão, Luz, Água). Ao pagar, o valor sai do Card 'Banco' e abate o saldo no Card 'Contas'.
+
+4. MOTOR DE RELATÓRIOS (O DIFERENCIAL):
+
+Implemente uma seção 'Gerar Relatório' dentro da Aba Pessoal.
+
+Filtro de Data: O usuário deve poder escolher o Início e o Fim (Ex: 01/04 a 30/04).
+
+Geração de PDF (jspdf/pdfmake): O relatório NÃO pode ser um print. Deve ser um documento oficial contendo:
+
+Cabeçalho com Nome, Empresa e Período.
+
+Tabela detalhada: [DATA | HORA | CATEGORIA | DESCRIÇÃO | VALOR].
+
+Resumo final: Total Produzido, Total de Vales, Total de Contas Pagas e Saldo Líquido Restante.
+
+5. FECHAMENTO E AUTOMATIZAÇÃO:
+
+O botão 'Fechar Semana' automatiza o lucro: transfere o líquido da barbearia para o Card 'Banco' e separa a % da caixinha (Reserva).
+
+Rollback: Qualquer edição no passado deve recalcular todos os saldos de todos os cards envolvidos instantaneamente.
+
+FOCO NO UX: O usuário nunca deve se sentir perdido. O fluxo deve ser: Lançou -> Registrou Data/Hora -> Atualizou Card -> Disponível para Relatório."

@@ -2,7 +2,15 @@ import type { WeeklyCyclesRepo } from "../weeklyCycles/weeklyCycles.repository";
 import type { WithdrawalsRepo, CategoriaDestino } from "../withdrawals/withdrawals.repository";
 import type { PersonalFinancesRepo, PersonalFinancesDTO } from "./personalFinances.repository";
 import type { PersonalBillsRepo, PersonalBillDTO } from "../personalBills/personalBills.repository";
+import type { TransactionsRepo } from "../transactions/transactions.repository";
+import type { PersonalCategoriesRepo } from "../personalCategories/personalCategories.repository";
 import { NotFoundError, ValidationError } from "../../domain/errors";
+
+const DESTINO_TO_SLUG: Record<CategoriaDestino, string> = {
+  gasto_livre: "outros",
+  conta_fixa: "contas",
+  reserva: "reserva",
+};
 
 export type AlertKind = "vale_excedente" | "conta_vence_24h" | "ajuste_domingo" | "ciclo_pendente_fechamento";
 export interface PersonalAlert {
@@ -52,7 +60,15 @@ export class PersonalFinancesService {
     private withdrawals: WithdrawalsRepo,
     private finances: PersonalFinancesRepo,
     private bills: PersonalBillsRepo,
+    private transactions: TransactionsRepo,
+    private categories: PersonalCategoriesRepo,
   ) {}
+
+  private async getCategoryIdForDestino(bsId: string, userId: string, destino: CategoriaDestino) {
+    const slug = DESTINO_TO_SLUG[destino];
+    const cats = await this.categories.ensureSystemCategories(bsId, userId);
+    return cats.find((c) => c.slug === slug)?.id ?? null;
+  }
 
   async getOverview(bsId: string, userId: string): Promise<{
     semana: SaldoSemanal;
@@ -143,6 +159,18 @@ export class PersonalFinancesService {
       isExcedente,
       occurredAt: input.occurredAt ?? new Date().toISOString(),
     });
+    // Mirror para o extrato unificado (transactions)
+    const categoryId = await this.getCategoryIdForDestino(bsId, userId, input.categoriaDestino);
+    if (categoryId != null) {
+      await this.transactions.create(bsId, {
+        userId,
+        type: input.categoriaDestino === "reserva" ? "entrada" : "gasto",
+        amount: input.valor,
+        categoryId,
+        description: input.descricao ?? "Vale",
+        occurredAt: input.occurredAt ?? new Date().toISOString(),
+      });
+    }
     await this.cycles.recompute(bsId, cycle.id);
     return w;
   }
@@ -199,6 +227,31 @@ export class PersonalFinancesService {
     const banco = +(saldo - caixinha).toFixed(2);
     const pessoal = await this.finances.adjustSaldo(bsId, userId, banco, caixinha);
     await this.cycles.close(bsId, cycleId);
+    // Espelha no extrato: entrada no Banco e na Reserva
+    const cats = await this.categories.ensureSystemCategories(bsId, userId);
+    const bancoCat = cats.find((c) => c.slug === "banco");
+    const reservaCat = cats.find((c) => c.slug === "reserva");
+    const closedAt = new Date().toISOString();
+    if (banco > 0 && bancoCat) {
+      await this.transactions.create(bsId, {
+        userId,
+        type: "entrada",
+        amount: banco,
+        categoryId: bancoCat.id,
+        description: `Fechamento ${recomputed.startDate} → ${recomputed.endDate}`,
+        occurredAt: closedAt,
+      });
+    }
+    if (caixinha > 0 && reservaCat) {
+      await this.transactions.create(bsId, {
+        userId,
+        type: "entrada",
+        amount: caixinha,
+        categoryId: reservaCat.id,
+        description: `Caixinha ${finances.percentualCaixinha}%`,
+        occurredAt: closedAt,
+      });
+    }
     return { cycleId, saldoTransferido: banco, caixinha, pessoal };
   }
 }

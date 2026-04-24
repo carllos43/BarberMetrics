@@ -8,7 +8,14 @@ import { DrizzleWeeklyCyclesRepo } from "./modules/weeklyCycles/weeklyCycles.rep
 import { DrizzleWithdrawalsRepo } from "./modules/withdrawals/withdrawals.repository";
 import { DrizzlePersonalFinancesRepo } from "./modules/personalFinances/personalFinances.repository";
 import { DrizzlePersonalBillsRepo } from "./modules/personalBills/personalBills.repository";
+import { DrizzlePersonalCategoriesRepo } from "./modules/personalCategories/personalCategories.repository";
+import { DrizzleTransactionsRepo } from "./modules/transactions/transactions.repository";
 import { PersonalFinancesService } from "./modules/personalFinances/personalFinances.service";
+import { TransactionsService } from "./modules/transactions/transactions.service";
+import { PersonalReportsService } from "./modules/personalReports/personalReports.service";
+import { PersonalCategoriesController } from "./modules/personalCategories/personalCategories.controller";
+import { TransactionsController } from "./modules/transactions/transactions.controller";
+import { PersonalReportsController } from "./modules/personalReports/personalReports.controller";
 
 import { AuthService } from "./modules/auth/auth.service";
 import { AuthController } from "./modules/auth/auth.controller";
@@ -42,6 +49,8 @@ export const weeklyCyclesRepo = new DrizzleWeeklyCyclesRepo();
 export const withdrawalsRepo = new DrizzleWithdrawalsRepo();
 export const personalFinancesRepo = new DrizzlePersonalFinancesRepo();
 export const personalBillsRepo = new DrizzlePersonalBillsRepo();
+export const personalCategoriesRepo = new DrizzlePersonalCategoriesRepo();
+export const transactionsRepo = new DrizzleTransactionsRepo();
 
 // ---- Services
 export const settingsService = new SettingsService(settingsRepo, usersRepo);
@@ -53,13 +62,19 @@ export const dashboardService = new DashboardService(appointmentsRepo, billsRepo
 export const financesService = new FinancesService(appointmentsRepo, billsRepo);
 export const productivityService = new ProductivityService(appointmentsRepo, billsRepo, settingsService);
 export const reportsService = new ReportsService(appointmentsRepo);
+export const transactionsService = new TransactionsService(transactionsRepo, personalCategoriesRepo, personalBillsRepo);
 export const personalFinancesService = new PersonalFinancesService(
   weeklyCyclesRepo, withdrawalsRepo, personalFinancesRepo, personalBillsRepo,
+  transactionsRepo, personalCategoriesRepo,
 );
+export const personalReportsService = new PersonalReportsService(transactionsRepo, personalCategoriesRepo, appointmentsRepo);
 export const personalFinancesController = new PersonalFinancesController(
   personalFinancesService, personalFinancesRepo, weeklyCyclesRepo,
 );
 export const personalBillsController = new PersonalBillsController(personalBillsRepo);
+export const personalCategoriesController = new PersonalCategoriesController(personalCategoriesRepo);
+export const transactionsController = new TransactionsController(transactionsService);
+export const personalReportsController = new PersonalReportsController(personalReportsService);
 
 // ---- Controllers
 export const authController = new AuthController(authService);

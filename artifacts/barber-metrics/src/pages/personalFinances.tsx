@@ -25,9 +25,13 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { pf, type CategoriaDestino, type PersonalAlert } from "@/lib/personalFinances";
+import { pf, type CategoriaDestino, type PersonalAlert, type CategoryWithBalance, type PersonalBill } from "@/lib/personalFinances";
 import { generatePersonalFinancesPdf } from "@/lib/personalPdf";
+import { generatePersonalReportPdf } from "@/lib/personalReportPdf";
 import { getSession } from "@/lib/auth";
+import { CategoryExtractDrawer } from "@/components/personal/CategoryExtractDrawer";
+import { FileText, Receipt } from "lucide-react";
+import { format as formatFn } from "date-fns";
 
 const categoriaLabel: Record<CategoriaDestino, string> = {
   gasto_livre: "Gasto livre",
@@ -62,6 +66,18 @@ export default function PersonalFinancesPage() {
 
   const overviewQ = useQuery({ queryKey: ["pf", "overview"], queryFn: pf.overview });
   const cyclesQ   = useQuery({ queryKey: ["pf", "cycles"], queryFn: () => pf.cycles(12) });
+  const cardsQ    = useQuery({ queryKey: ["pf", "cards"], queryFn: pf.cards });
+
+  const [openCard, setOpenCard] = useState<CategoryWithBalance | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payTarget, setPayTarget] = useState<PersonalBill | null>(null);
+  const [payForm, setPayForm] = useState({ amount: "", description: "" });
+  const [reportOpen, setReportOpen] = useState(false);
+  const today = new Date();
+  const monthStart = formatFn(new Date(today.getFullYear(), today.getMonth(), 1), "yyyy-MM-dd");
+  const monthEnd = formatFn(new Date(today.getFullYear(), today.getMonth() + 1, 0), "yyyy-MM-dd");
+  const [reportForm, setReportForm] = useState({ start: monthStart, end: monthEnd });
+  const [reportLoading, setReportLoading] = useState(false);
 
   const [valeOpen, setValeOpen] = useState(false);
   const [valeForm, setValeForm] = useState<{ valor: string; categoriaDestino: CategoriaDestino; descricao: string }>({
@@ -181,6 +197,47 @@ export default function PersonalFinancesPage() {
     doc.save(`financeiro-pessoal-${format(new Date(), "yyyy-MM-dd")}.pdf`);
   };
 
+  const payBillMut = useMutation({
+    mutationFn: () => pf.payBill({
+      billId: payTarget!.id,
+      amount: parseFloat(payForm.amount.replace(",", ".")),
+      description: payForm.description || payTarget!.nome,
+    }),
+    onSuccess: () => {
+      invalidate();
+      setPayOpen(false);
+      setPayTarget(null);
+      setPayForm({ amount: "", description: "" });
+      toast({ title: "Pagamento registrado." });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const handlePayClick = (bill: PersonalBill) => {
+    setPayTarget(bill);
+    setPayForm({ amount: String(bill.valor), description: bill.nome });
+    setPayOpen(true);
+  };
+
+  const generateReport = async () => {
+    setReportLoading(true);
+    try {
+      const data = await pf.report(reportForm.start, reportForm.end);
+      const doc = generatePersonalReportPdf({
+        appName: "BarberMetrics",
+        ownerName: session?.user.fullName ?? "Profissional",
+        report: data,
+      });
+      doc.save(`relatorio-${reportForm.start}_${reportForm.end}.pdf`);
+      setReportOpen(false);
+      toast({ title: "Relatório gerado." });
+    } catch (e) {
+      toast({ title: (e as Error).message, variant: "destructive" });
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const overview = overviewQ.data;
   const isNeg = (overview?.semana.saldoDisponivel ?? 0) < 0;
 
@@ -293,43 +350,31 @@ export default function PersonalFinancesPage() {
           </div>
         )}
 
-        {/* ENVELOPES */}
+        {/* ENVELOPES — agora cards clicáveis com saldo em tempo real */}
         {overview && (
           <div>
             <div className="flex items-center justify-between mb-2 px-1">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Envelopes</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Cards</h3>
               <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEnvOpen(true)}>
                 <Pencil className="w-3 h-3 mr-1" /> Ajustar
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <EnvelopeCard
-                icon={<Banknote className="w-4 h-4" />}
-                label="No banco"
-                value={overview.pessoal.saldoBanco}
-                tone="from-emerald-500/20 to-card"
-              />
-              <EnvelopeCard
-                icon={<PiggyBank className="w-4 h-4" />}
-                label="Reserva"
-                value={overview.pessoal.saldoGuardado}
-                tone="from-violet-500/20 to-card"
-                hint={`${overview.pessoal.percentualCaixinha}% no fechamento`}
-              />
-              <EnvelopeCard
-                icon={<Coffee className="w-4 h-4" />}
-                label="Limite lazer"
-                value={overview.pessoal.limiteLazer}
-                tone="from-amber-500/15 to-card"
-                small
-              />
-              <EnvelopeCard
-                icon={<ShoppingBag className="w-4 h-4" />}
-                label="Limite comida"
-                value={overview.pessoal.limiteComida}
-                tone="from-rose-500/15 to-card"
-                small
-              />
+              {(cardsQ.data ?? []).map((c) => (
+                <EnvelopeCard
+                  key={c.id}
+                  icon={iconBySlug(c.slug)}
+                  label={c.nome}
+                  value={c.saldo}
+                  tone={toneBySlug(c.slug)}
+                  hint={c.slug === "reserva" ? `${overview.pessoal.percentualCaixinha}% no fechamento` : undefined}
+                  small={["lazer", "comida", "outros"].includes(c.slug)}
+                  onClick={() => setOpenCard(c)}
+                />
+              ))}
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-1.5 px-1">
+              Toque em qualquer card pra ver o extrato detalhado.
             </div>
           </div>
         )}
@@ -373,17 +418,28 @@ export default function PersonalFinancesPage() {
                         <div className="text-[10px] text-muted-foreground">dia {c.diaVencimento}</div>
                       </div>
                       <div className="flex flex-col items-center gap-1">
-                        <Switch
-                          checked={c.ativa}
-                          onCheckedChange={(v) => toggleBill.mutate({ id: c.id, ativa: v })}
-                        />
-                        <button
-                          onClick={() => removeBill.mutate(c.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                          aria-label="Remover"
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 px-3 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border-0"
+                          onClick={() => handlePayClick(c)}
+                          disabled={!c.ativa}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                          Pagar
+                        </Button>
+                        <div className="flex items-center gap-1.5">
+                          <Switch
+                            checked={c.ativa}
+                            onCheckedChange={(v) => toggleBill.mutate({ id: c.id, ativa: v })}
+                          />
+                          <button
+                            onClick={() => removeBill.mutate(c.id)}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Remover"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -391,6 +447,33 @@ export default function PersonalFinancesPage() {
               })}
             </div>
           )}
+        </div>
+
+        {/* RELATÓRIO */}
+        <div>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Gerar Relatório</h3>
+          </div>
+          <Card className="bg-card/60 border-border/40 rounded-2xl">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-primary/15 text-primary flex items-center justify-center">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold">Relatório financeiro pessoal</div>
+                <div className="text-[11px] text-muted-foreground">
+                  PDF detalhado com produzido, vales e contas pagas no período.
+                </div>
+              </div>
+              <Button
+                size="sm"
+                className="h-9 rounded-xl font-bold"
+                onClick={() => setReportOpen(true)}
+              >
+                Escolher período
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* HISTÓRICO DE SEMANAS */}
@@ -586,24 +669,143 @@ export default function PersonalFinancesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* MODAL PAGAR CONTA */}
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pagar conta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {payTarget && (
+              <div className="text-sm text-muted-foreground">
+                {payTarget.nome} • vence dia {payTarget.diaVencimento}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label className="text-xs">Valor pago (R$)</Label>
+              <Input
+                inputMode="decimal"
+                value={payForm.amount}
+                onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Descrição (opcional)</Label>
+              <Input
+                value={payForm.description}
+                onChange={(e) => setPayForm({ ...payForm, description: e.target.value })}
+                className="h-11"
+              />
+            </div>
+            <Button
+              className="w-full h-11 font-bold"
+              onClick={() => payBillMut.mutate()}
+              disabled={!payForm.amount || payBillMut.isPending}
+            >
+              {payBillMut.isPending ? "Registrando..." : "Confirmar pagamento"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL RELATÓRIO */}
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle>Período do relatório</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs">De</Label>
+                <Input
+                  type="date"
+                  value={reportForm.start}
+                  onChange={(e) => setReportForm({ ...reportForm, start: e.target.value })}
+                  className="h-11"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Até</Label>
+                <Input
+                  type="date"
+                  value={reportForm.end}
+                  onChange={(e) => setReportForm({ ...reportForm, end: e.target.value })}
+                  className="h-11"
+                />
+              </div>
+            </div>
+            <Button
+              className="w-full h-11 font-bold"
+              onClick={generateReport}
+              disabled={reportLoading || !reportForm.start || !reportForm.end}
+            >
+              {reportLoading ? "Gerando PDF..." : "Baixar PDF"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* DRAWER DE EXTRATO */}
+      <CategoryExtractDrawer
+        open={!!openCard}
+        onClose={() => setOpenCard(null)}
+        category={openCard ? (cardsQ.data?.find((c) => c.id === openCard.id) ?? openCard) : null}
+      />
     </MobileLayout>
   );
 }
 
 function EnvelopeCard({
-  icon, label, value, tone, hint, small,
-}: { icon: React.ReactNode; label: string; value: number; tone: string; hint?: string; small?: boolean }) {
-  return (
-    <Card className={cn("border-0 rounded-2xl bg-gradient-to-br", tone)}>
+  icon, label, value, tone, hint, small, onClick,
+}: { icon: React.ReactNode; label: string; value: number; tone: string; hint?: string; small?: boolean; onClick?: () => void }) {
+  const inner = (
+    <Card className={cn(
+      "border-0 rounded-2xl bg-gradient-to-br transition-transform",
+      tone,
+      onClick && "active:scale-[0.97] hover:shadow-lg cursor-pointer",
+    )}>
       <CardContent className="p-3">
         <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] uppercase tracking-wider">
           {icon} {label}
         </div>
-        <div className={cn("font-bold tabular-nums mt-1", small ? "text-base" : "text-lg")}>
+        <div className={cn("font-bold tabular-nums mt-1", small ? "text-base" : "text-lg",
+          value < 0 ? "text-destructive" : "")}>
           {formatCurrency(value)}
         </div>
         {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
       </CardContent>
     </Card>
   );
+  if (onClick) {
+    return (
+      <button onClick={onClick} className="text-left w-full" aria-label={`Abrir extrato ${label}`}>
+        {inner}
+      </button>
+    );
+  }
+  return inner;
+}
+
+function iconBySlug(slug: string): React.ReactNode {
+  switch (slug) {
+    case "banco":   return <Banknote className="w-4 h-4" />;
+    case "reserva": return <PiggyBank className="w-4 h-4" />;
+    case "lazer":   return <Coffee className="w-4 h-4" />;
+    case "comida":  return <ShoppingBag className="w-4 h-4" />;
+    case "contas":  return <Receipt className="w-4 h-4" />;
+    default:        return <Wallet className="w-4 h-4" />;
+  }
+}
+function toneBySlug(slug: string): string {
+  switch (slug) {
+    case "banco":   return "from-emerald-500/20 to-card";
+    case "reserva": return "from-violet-500/20 to-card";
+    case "lazer":   return "from-amber-500/15 to-card";
+    case "comida":  return "from-pink-500/15 to-card";
+    case "contas":  return "from-rose-500/20 to-card";
+    default:        return "from-slate-500/15 to-card";
+  }
 }

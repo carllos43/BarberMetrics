@@ -9,3 +9,5 @@ export * from "./weeklyCycles";
 export * from "./withdrawals";
 export * from "./personalFinances";
 export * from "./personalBills";
+export * from "./personalCategories";
+export * from "./transactions";

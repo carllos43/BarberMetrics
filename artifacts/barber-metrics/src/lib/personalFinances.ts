@@ -85,6 +85,49 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (body?.data ?? body) as T;
 }
 
+export type TxType = "entrada" | "gasto" | "pagamento";
+
+export interface PersonalCategory {
+  id: number;
+  slug: string;
+  nome: string;
+  icon: string;
+  color: string;
+  isSystem: boolean;
+}
+export interface CategoryWithBalance extends PersonalCategory {
+  saldo: number;
+}
+export interface ExtractItem {
+  id: number;
+  type: TxType;
+  amount: number;
+  signedAmount: number;
+  description: string | null;
+  occurredAt: string;
+  billId: number | null;
+}
+export interface ReportRow {
+  occurredAt: string;
+  type: TxType | "atendimento";
+  categoryId: number | null;
+  categoryName: string;
+  description: string;
+  amount: number;
+  signed: number;
+}
+export interface PersonalReport {
+  startDate: string;
+  endDate: string;
+  rows: ReportRow[];
+  totals: {
+    produzido: number;
+    vales: number;
+    contasPagas: number;
+    saldoLiquido: number;
+  };
+}
+
 export const pf = {
   overview: () => api<PersonalOverview>("/personal-finances/overview"),
   cycles: (limit = 12) => api<WeeklyCycle[]>(`/personal-finances/cycles?limit=${limit}`),
@@ -109,4 +152,21 @@ export const pf = {
     remove: (id: number) =>
       api<void>(`/personal-bills/${id}`, { method: "DELETE" }),
   },
+  cards: () => api<CategoryWithBalance[]>("/transactions/cards"),
+  extract: (categoryId: number) => api<ExtractItem[]>(`/transactions/extract/${categoryId}`),
+  createTx: (input: { type: TxType; amount: number; categoryId?: number | null; billId?: number | null; description?: string | null; occurredAt?: string }) =>
+    api<ExtractItem>("/transactions", { method: "POST", body: JSON.stringify(input) }),
+  updateTx: (id: number, patch: { amount?: number; description?: string | null; occurredAt?: string; categoryId?: number | null }) =>
+    api<ExtractItem>(`/transactions/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
+  deleteTx: (id: number) => api<void>(`/transactions/${id}`, { method: "DELETE" }),
+  payBill: (input: { billId: number; amount: number; description?: string | null; occurredAt?: string }) =>
+    api<ExtractItem>("/transactions/pay-bill", { method: "POST", body: JSON.stringify(input) }),
+  categories: {
+    list: () => api<PersonalCategory[]>("/personal-categories"),
+    create: (input: { nome: string; icon?: string; color?: string }) =>
+      api<PersonalCategory>("/personal-categories", { method: "POST", body: JSON.stringify(input) }),
+    remove: (id: number) => api<void>(`/personal-categories/${id}`, { method: "DELETE" }),
+  },
+  report: (start: string, end: string) =>
+    api<PersonalReport>(`/personal-reports?start=${start}&end=${end}`),
 };

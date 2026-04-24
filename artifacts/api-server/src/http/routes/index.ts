@@ -12,6 +12,9 @@ import {
   reportsController,
   personalFinancesController,
   personalBillsController,
+  personalCategoriesController,
+  transactionsController,
+  personalReportsController,
 } from "../../container";
 import {
   WithdrawalBody, WithdrawalPatch, PersonalFinancesPatch, CloseWeekBody,
@@ -19,6 +22,12 @@ import {
 import {
   PersonalBillBody, PersonalBillPatch,
 } from "../../modules/personalBills/personalBills.controller";
+import {
+  CategoryBody, CategoryPatch,
+} from "../../modules/personalCategories/personalCategories.controller";
+import {
+  TxCreateBody, TxPatch, PayBillBody,
+} from "../../modules/transactions/transactions.controller";
 import { authMiddleware, authOnlyMiddleware } from "../middlewares/auth";
 import { tenantMiddleware } from "../middlewares/tenant";
 import { authRateLimit } from "../middlewares/rateLimit";
@@ -137,6 +146,28 @@ protectedRouter.post("/personal-bills",
 protectedRouter.put("/personal-bills/:id",
   validate({ body: PersonalBillPatch }), personalBillsController.update);
 protectedRouter.delete("/personal-bills/:id", personalBillsController.remove);
+
+// Personal Categories (cards do extrato)
+protectedRouter.get("/personal-categories", personalCategoriesController.list);
+protectedRouter.post("/personal-categories",
+  validate({ body: CategoryBody }), personalCategoriesController.create);
+protectedRouter.put("/personal-categories/:id",
+  validate({ body: CategoryPatch }), personalCategoriesController.update);
+protectedRouter.delete("/personal-categories/:id", personalCategoriesController.remove);
+
+// Transactions (extrato unificado)
+protectedRouter.get("/transactions/cards", transactionsController.cards);
+protectedRouter.get("/transactions/extract/:categoryId", transactionsController.extract);
+protectedRouter.post("/transactions",
+  validate({ body: TxCreateBody }), transactionsController.create);
+protectedRouter.put("/transactions/:id",
+  validate({ body: TxPatch }), transactionsController.update);
+protectedRouter.delete("/transactions/:id", transactionsController.remove);
+protectedRouter.post("/transactions/pay-bill",
+  validate({ body: PayBillBody }), transactionsController.payBill);
+
+// Personal Reports
+protectedRouter.get("/personal-reports", personalReportsController.generate);
 
 router.use(protectedRouter);
 
