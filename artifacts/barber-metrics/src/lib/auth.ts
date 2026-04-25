@@ -20,12 +20,6 @@ export interface AuthSession {
   barbershop: Barbershop;
 }
 
-const API_BASE = (() => {
-  const override = import.meta.env.VITE_API_BASE_URL?.trim();
-  if (override) return `${override.replace(/\/+$/, "")}/api`;
-  return `${import.meta.env.BASE_URL}api`.replace(/\/+$/, "");
-})();
-
 const listeners = new Set<(s: AuthSession | null) => void>();
 
 let cachedToken: string | null = null;
@@ -34,12 +28,8 @@ let cachedProfile: { user: AuthUser; barbershop: Barbershop } | null = null;
 try {
   const raw = localStorage.getItem(PROFILE_KEY);
   if (raw) cachedProfile = JSON.parse(raw);
-} catch { /* ignore */ }
-
-async function readToken(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  cachedToken = data.session?.access_token ?? null;
-  return cachedToken;
+} catch {
+  /* ignore */
 }
 
 /** Synchronous getter used by the request signer in api-client-react. */
@@ -56,8 +46,10 @@ function persistProfile(p: { user: AuthUser; barbershop: Barbershop } | null) {
   cachedProfile = p;
   try {
     if (p) localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
-    else   localStorage.removeItem(PROFILE_KEY);
-  } catch { /* ignore quota errors */ }
+    else localStorage.removeItem(PROFILE_KEY);
+  } catch {
+    /* ignore quota errors */
+  }
 }
 
 function emit() {
@@ -70,112 +62,98 @@ export function onAuthChange(fn: (s: AuthSession | null) => void): () => void {
   return () => listeners.delete(fn);
 }
 
-// Keep token cache + listeners in sync with Supabase session changes.
-supabase.auth.onAuthStateChange((_event, session) => {
-  cachedToken = session?.access_token ?? null;
-  if (!cachedToken) persistProfile(null);
-  emit();
-});
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 60) || "minha-barbearia";
+}
 
-async function callApi<T>(path: string, init: RequestInit, token?: string): Promise<T> {
-  const t = token ?? (await readToken());
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...(t ? { authorization: `Bearer ${t}` } : {}),
-      ...(init.headers ?? {}),
-    },
-  });
-  const text = await res.text();
-  const body = text ? JSON.parse(text) : null;
-  if (!res.ok) {
-    const msg = body?.error ?? body?.message ?? `Erro ${res.status}`;
-    throw new Error(msg);
-  }
-  return body as T;
+/**
+ * Build a profile (user + barbershop) directly from a Supabase auth user,
+ * with no backend call. Reads custom fields from user_metadata when present.
+ */
+function profileFromSupabaseUser(authUser: {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+}): { user: AuthUser; barbershop: Barbershop } {
+  const meta = (authUser.user_metadata ?? {}) as Record<string, unknown>;
+  const email = authUser.email ?? "";
+  const fullName =
+    (typeof meta.full_name === "string" && meta.full_name) ||
+    (typeof meta.name === "string" && meta.name) ||
+    (email ? email.split("@")[0] : "Profissional");
+  const role = (typeof meta.role === "string" && meta.role) || "barber";
+  const commissionPercent =
+    typeof meta.commission_percent === "number" ? meta.commission_percent : 50;
+  const barbershopName =
+    (typeof meta.barbershop_name === "string" && meta.barbershop_name) ||
+    `Barbearia de ${fullName.split(" ")[0]}`;
+  const barbershopId =
+    (typeof meta.barbershop_id === "string" && meta.barbershop_id) || authUser.id;
+  return {
+    user: { id: authUser.id, email, fullName, role, commissionPercent },
+    barbershop: { id: barbershopId, name: barbershopName, slug: slugify(barbershopName) },
+  };
 }
 
 export async function signup(input: {
-  email: string; password: string; fullName: string; barbershopName?: string;
+  email: string;
+  password: string;
+  fullName: string;
+  barbershopName?: string;
 }): Promise<AuthSession> {
   const { data, error } = await supabase.auth.signUp({
     email: input.email,
     password: input.password,
-    options: { data: { full_name: input.fullName } },
+    options: {
+      data: {
+        full_name: input.fullName,
+        barbershop_name: input.barbershopName ?? `Barbearia de ${input.fullName.split(" ")[0]}`,
+      },
+    },
   });
   if (error) throw new Error(translateAuthError(error.message));
-  if (!data.session) {
-    // Email confirmation is enabled in this Supabase project.
+  if (!data.session || !data.user) {
     throw new Error("Conta criada — confirme o e-mail antes de entrar.");
   }
-  const token = data.session.access_token;
-  cachedToken = token;
-  const profile = await callApi<{ user: AuthUser; barbershop: Barbershop }>(
-    "/auth/onboard", {
-      method: "POST",
-      body: JSON.stringify({ fullName: input.fullName, barbershopName: input.barbershopName }),
-    }, token);
+  cachedToken = data.session.access_token;
+  const profile = profileFromSupabaseUser(data.user);
   persistProfile(profile);
   emit();
-  return { token, ...profile };
+  return { token: cachedToken, ...profile };
 }
 
 export async function login(input: { email: string; password: string }): Promise<AuthSession> {
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: input.email, password: input.password,
+    email: input.email,
+    password: input.password,
   });
   if (error) throw new Error(translateAuthError(error.message));
-  if (!data.session) throw new Error("Não foi possível autenticar");
-  const token = data.session.access_token;
-  cachedToken = token;
-  const profile = await ensureProfile(token, data.user);
+  if (!data.session || !data.user) throw new Error("Não foi possível autenticar");
+  cachedToken = data.session.access_token;
+  const profile = profileFromSupabaseUser(data.user);
   persistProfile(profile);
   emit();
-  return { token, ...profile };
-}
-
-/**
- * Try /auth/me; if the backend says the profile/barbershop doesn't exist yet
- * (typical when signup required email confirmation, so onboard never ran),
- * call /auth/onboard inline using metadata from Supabase.
- */
-async function ensureProfile(
-  token: string,
-  authUser: { email?: string | null; user_metadata?: Record<string, unknown> } | null,
-): Promise<{ user: AuthUser; barbershop: Barbershop }> {
-  try {
-    return await callApi<{ user: AuthUser; barbershop: Barbershop }>(
-      "/auth/me", { method: "GET" }, token);
-  } catch (e) {
-    const msg = (e as Error).message ?? "";
-    const needsOnboard = /onboarding|sem barbearia|Perfil não encontrado/i.test(msg);
-    if (!needsOnboard) throw e;
-    const meta = (authUser?.user_metadata ?? {}) as Record<string, unknown>;
-    const fullName =
-      (typeof meta.full_name === "string" && meta.full_name) ||
-      (typeof meta.name === "string" && meta.name) ||
-      (authUser?.email ? authUser.email.split("@")[0] : "Profissional");
-    return await callApi<{ user: AuthUser; barbershop: Barbershop }>(
-      "/auth/onboard", {
-        method: "POST",
-        body: JSON.stringify({ fullName }),
-      }, token);
-  }
+  return { token: cachedToken, ...profile };
 }
 
 export async function fetchMe(): Promise<AuthSession | null> {
-  const token = await readToken();
-  if (!token) { persistProfile(null); return null; }
-  try {
-    const profile = await callApi<{ user: AuthUser; barbershop: Barbershop }>(
-      "/auth/me", { method: "GET" }, token);
-    persistProfile(profile);
-    return { token, ...profile };
-  } catch {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session?.access_token || !session.user) {
+    cachedToken = null;
     persistProfile(null);
     return null;
   }
+  cachedToken = session.access_token;
+  const profile = profileFromSupabaseUser(session.user);
+  persistProfile(profile);
+  return { token: cachedToken, ...profile };
 }
 
 export async function logout(): Promise<void> {
@@ -185,9 +163,21 @@ export async function logout(): Promise<void> {
   emit();
 }
 
+// Keep token cache + listeners in sync with Supabase session changes
+// (token refresh, sign-out from another tab, etc.)
+supabase.auth.onAuthStateChange((_event, session) => {
+  cachedToken = session?.access_token ?? null;
+  if (session?.user) {
+    persistProfile(profileFromSupabaseUser(session.user));
+  } else {
+    persistProfile(null);
+  }
+  emit();
+});
+
 function translateAuthError(msg: string): string {
   if (/Invalid login credentials/i.test(msg)) return "E-mail ou senha inválidos";
-  if (/User already registered/i.test(msg))  return "E-mail já cadastrado";
-  if (/Email not confirmed/i.test(msg))      return "Confirme seu e-mail antes de entrar";
+  if (/User already registered/i.test(msg)) return "E-mail já cadastrado";
+  if (/Email not confirmed/i.test(msg)) return "Confirme seu e-mail antes de entrar";
   return msg;
 }
