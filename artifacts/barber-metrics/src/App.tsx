@@ -97,7 +97,9 @@ function App() {
               <AppRoutes />
             </WouterRouter>
           ) : (
-            <LoginPage />
+            <PageSuspense>
+              <LazyLogin />
+            </PageSuspense>
           )}
           <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
           <Toaster />
